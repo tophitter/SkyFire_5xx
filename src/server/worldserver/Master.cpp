@@ -131,13 +131,13 @@ int Master::Run()
     TC_LOG_INFO("server.worldserver", "%s (worldserver-daemon)", _FULLVERSION);
     TC_LOG_INFO("server.worldserver", "<Ctrl-C> to stop.\n");
 
-    TC_LOG_INFO("server.authserver", "   ______  __  __  __  __  ______ __  ______  ______ ");
-    TC_LOG_INFO("server.authserver", "  /\\  ___\\/\\ \\/ / /\\ \\_\\ \\/\\  ___/\\ \\/\\  == \\/\\  ___\\ ");
-    TC_LOG_INFO("server.authserver", "  \\ \\___  \\ \\  _'-\\ \\____ \\ \\  __\\ \\ \\ \\  __<\\ \\  __\\ ");
-    TC_LOG_INFO("server.authserver", "   \\/\\_____\\ \\_\\ \\_\\/\\_____\\ \\_\\  \\ \\_\\ \\_\\ \\_\\ \\_____\\ ");
-    TC_LOG_INFO("server.authserver", "    \\/_____/\\/_/\\/_/\\/_____/\\/_/   \\/_/\\/_/ /_/\\/_____/ ");
-    TC_LOG_INFO("server.authserver", "  Project SkyFireEmu 2013(c) Open-sourced Game Emulation ");
-    TC_LOG_INFO("server.authserver", "           <http://www.projectskyfire.org/> \n");
+    TC_LOG_INFO("server.worldserver", "   ______  __  __  __  __  ______ __  ______  ______ ");
+    TC_LOG_INFO("server.worldserver", "  /\\  ___\\/\\ \\/ / /\\ \\_\\ \\/\\  ___/\\ \\/\\  == \\/\\  ___\\ ");
+    TC_LOG_INFO("server.worldserver", "  \\ \\___  \\ \\  _'-\\ \\____ \\ \\  __\\ \\ \\ \\  __<\\ \\  __\\ ");
+    TC_LOG_INFO("server.worldserver", "   \\/\\_____\\ \\_\\ \\_\\/\\_____\\ \\_\\  \\ \\_\\ \\_\\ \\_\\ \\_____\\ ");
+    TC_LOG_INFO("server.worldserver", "    \\/_____/\\/_/\\/_/\\/_____/\\/_/   \\/_/\\/_/ /_/\\/_____/ ");
+    TC_LOG_INFO("server.worldserver", "  Project SkyFireEmu 2014(c) Open-sourced Game Emulation ");
+    TC_LOG_INFO("server.worldserver", "           <http://www.projectskyfire.org/> \n");
 
 
     /// worldserver PID file creation
@@ -463,6 +463,20 @@ bool Master::_StartDB()
         TC_LOG_ERROR("server.worldserver", "Realm ID not defined in configuration file");
         return false;
     }
+
+    // Load realm names into a store
+    PreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_SEL_REALMLIST);
+    PreparedQueryResult result = LoginDatabase.Query(stmt);
+    if (result)
+    {
+        do
+        {
+            Field* fields = result->Fetch();
+            realmNameStore[fields[0].GetUInt32()] = fields[1].GetString(); // Store the realm name into the store
+        }
+        while (result->NextRow());
+    }
+
     TC_LOG_INFO("server.worldserver", "Realm running as realm ID %d", realmID);
 
     ///- Clean the database before starting

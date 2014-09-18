@@ -59,7 +59,7 @@ struct ServerPktHeader
     {
         if (_authCrypt->IsInitialized())
         {
-            uint32 data =  (size << 13) | cmd & MAX_OPCODE;
+            uint32 data = (size << 13) | (cmd & MAX_OPCODE);
             memcpy(&header[0], &data, 4);
             _authCrypt->EncryptSend((uint8*)&header[0], getHeaderLength());
         }
@@ -100,7 +100,7 @@ struct WorldClientPktHeader
 
 WorldSocket::WorldSocket (void): WorldHandler(),
 m_LastPingTime(ACE_Time_Value::zero), m_OverSpeedPings(0), m_Session(0),
-m_RecvWPct(0), m_RecvPct(), m_Header(sizeof(AuthClientPktHeader)), 
+m_RecvWPct(0), m_RecvPct(), m_Header(sizeof(AuthClientPktHeader)),
 m_WorldHeader(sizeof(WorldClientPktHeader)), m_OutBuffer(0),
 m_OutBufferSize(65536), m_OutActive(false),
 
@@ -175,12 +175,14 @@ int WorldSocket::SendPacket(WorldPacket const& pct)
         pkt = &buff;
     }*/
 
+    uint16 opcodeNumber = serverOpcodeTable[pkt->GetOpcode()]->OpcodeNumber;
+
     if (m_Session)
-        TC_LOG_TRACE("network.opcode", "S->C: %s %s", m_Session->GetPlayerInfo().c_str(), GetOpcodeNameForLogging(pkt->GetOpcode()).c_str());
+        TC_LOG_TRACE("network.opcode", "S->C: %s %s", m_Session->GetPlayerInfo().c_str(), GetOpcodeNameForLogging(pkt->GetOpcode(), true).c_str());
 
     sScriptMgr->OnPacketSend(this, *pkt);
 
-    ServerPktHeader header(!m_Crypt.IsInitialized() ? pkt->size() + 2 : pct.size(), pkt->GetOpcode(), &m_Crypt);
+    ServerPktHeader header(!m_Crypt.IsInitialized() ? pkt->size() + 2 : pct.size(), opcodeNumber, &m_Crypt);
 
     if (m_OutBuffer->space() >= pkt->size() + header.getHeaderLength() && msg_queue()->is_empty())
     {
@@ -486,7 +488,7 @@ int WorldSocket::handle_input_header (void)
         uint8* uintHeader = (uint8*)m_WorldHeader.rd_ptr();
         m_Crypt.DecryptRecv(uintHeader, sizeof(WorldClientPktHeader));
         WorldClientPktHeader& header = *(WorldClientPktHeader*)uintHeader;
-        
+
         uint32 value = *(uint32*)uintHeader;
         header.cmd = value & 0x1FFF;
         header.size = ((value & ~(uint32)0x1FFF) >> 13);
@@ -503,8 +505,10 @@ int WorldSocket::handle_input_header (void)
             errno = EINVAL;
             return -1;
         }
-        
-        ACE_NEW_RETURN(m_RecvWPct, WorldPacket (PacketFilter::DropHighBytes(Opcodes(header.cmd)), header.size), -1);
+
+        uint16 opcodeNumber = PacketFilter::DropHighBytes(header.cmd);
+        ACE_NEW_RETURN(m_RecvWPct, WorldPacket(clientOpcodeTable.GetOpcodeByNumber(opcodeNumber), header.size), -1);
+        m_RecvWPct->SetReceivedOpcode(opcodeNumber);
 
         if (header.size > 0)
         {
@@ -535,7 +539,9 @@ int WorldSocket::handle_input_header (void)
 
         header.size -= 4;
 
-        ACE_NEW_RETURN(m_RecvWPct, WorldPacket (PacketFilter::DropHighBytes(Opcodes(header.cmd)), header.size), -1);
+        uint16 opcodeNumber = PacketFilter::DropHighBytes(header.cmd);
+        ACE_NEW_RETURN(m_RecvWPct, WorldPacket(clientOpcodeTable.GetOpcodeByNumber(opcodeNumber), header.size), -1);
+        m_RecvWPct->SetReceivedOpcode(opcodeNumber);
 
         if (header.size > 0)
         {
@@ -756,8 +762,7 @@ int WorldSocket::ProcessIncoming(WorldPacket* new_pct)
     // manage memory ;)
     ACE_Auto_Ptr<WorldPacket> aptr(new_pct);
 
-    Opcodes opcode = PacketFilter::DropHighBytes(new_pct->GetOpcode());
-    
+    Opcodes opcode = new_pct->GetOpcode();
 
     if (closing_)
         return -1;
@@ -766,10 +771,10 @@ int WorldSocket::ProcessIncoming(WorldPacket* new_pct)
     if (sPacketLog->CanLogPacket())
         sPacketLog->LogPacket(*new_pct, CLIENT_TO_SERVER);
 
-    std::string opcodeName = GetOpcodeNameForLogging(opcode);
+    std::string opcodeName = GetOpcodeNameForLogging(opcode, false);
     if (m_Session)
         TC_LOG_TRACE("network.opcode", "C->S: %s %s", m_Session->GetPlayerInfo().c_str(), opcodeName.c_str());
-     
+
     try
     {
         switch (opcode)
@@ -785,9 +790,9 @@ int WorldSocket::ProcessIncoming(WorldPacket* new_pct)
 
                 sScriptMgr->OnPacketReceive(this, WorldPacket(*new_pct));
                 return HandleAuthSession(*new_pct);
-            case CMSG_KEEP_ALIVE:
-                sScriptMgr->OnPacketReceive(this, WorldPacket(*new_pct));
-                return 0;
+            //case CMSG_KEEP_ALIVE:
+            //    sScriptMgr->OnPacketReceive(this, WorldPacket(*new_pct));
+            //    return 0;
             case CMSG_LOG_DISCONNECT:
                 new_pct->rfinish(); // contains uint32 disconnectReason;
                 sScriptMgr->OnPacketReceive(this, WorldPacket(*new_pct));
@@ -819,13 +824,13 @@ int WorldSocket::ProcessIncoming(WorldPacket* new_pct)
                 }
 
                 // prevent invalid memory access/crash with custom opcodes
-                if (opcode >= NUM_OPCODE_HANDLERS)
+                if (opcode >= NUM_OPCODES)
                     return 0;
 
-                OpcodeHandler const* handler = opcodeTable[opcode];
+                OpcodeHandler const* handler = clientOpcodeTable[opcode];
                 if (!handler || handler->Status == STATUS_UNHANDLED)
                 {
-                    TC_LOG_ERROR("network.opcode", "No defined handler for opcode %s sent by %s", GetOpcodeNameForLogging(new_pct->GetOpcode()).c_str(), m_Session->GetPlayerInfo().c_str());
+                    TC_LOG_ERROR("network.opcode", "No defined handler for opcode %s sent by %s", GetOpcodeNameForLogging(new_pct->GetOpcode(), false, new_pct->GetReceivedOpcode()).c_str(), m_Session->GetPlayerInfo().c_str());
                     return 0;
                 }
 
@@ -856,12 +861,14 @@ int WorldSocket::ProcessIncoming(WorldPacket* new_pct)
 int WorldSocket::HandleSendAuthSession()
 {
     WorldPacket packet(SMSG_AUTH_CHALLENGE, 37);
-    packet << uint8(1);
+    packet << uint16(0);
 
     for (int i = 0; i < 8; i++)
         packet << uint32(0);
 
-    packet << m_Seed;
+    packet << uint8(1);
+    packet << uint32(m_Seed);
+
     return SendPacket(packet);
 
 }
@@ -880,43 +887,43 @@ int WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
     BigNumber k;
     WorldPacket addonsData;
 
-    // TEMP! Digest fails to verify, incorrect?
-    recvPacket.read_skip<uint32>();
-    recvPacket >> digest[0]; // 9
-    recvPacket >> digest[0]; // 6
-    recvPacket.read_skip<uint8>();
-    recvPacket >> digest[0]; // 2
-    recvPacket >> digest[0]; // 3
-    recvPacket.read_skip<uint8>();
-    recvPacket >> digest[0]; // 14
-    recvPacket >> digest[0]; // 16
-    recvPacket >> digest[0]; // 13
-    recvPacket >> digest[0]; // 4
     recvPacket.read_skip<uint32>();
     recvPacket.read_skip<uint32>();
-    recvPacket >> digest[0]; // 5
-    recvPacket >> digest[0]; // 11
-    recvPacket.read_skip<uint64>();
-    recvPacket >> digest[0]; // 12
-    recvPacket >> digest[0]; // 0
-    recvPacket >> digest[0]; // 15
+    recvPacket >> digest[18];
+    recvPacket >> digest[14];
+    recvPacket >> digest[3];
+    recvPacket >> digest[4];
+    recvPacket >> digest[0];
     recvPacket.read_skip<uint32>();
-    recvPacket >> digest[0]; // 7
-    recvPacket >> digest[0]; // 17
-    recvPacket >> digest[0]; // 10
-    recvPacket >> clientBuild;
-    recvPacket >> digest[0]; // 19
-    recvPacket >> digest[0]; // 1
-    recvPacket >> digest[0]; // 8
+    recvPacket >> digest[11];
     recvPacket >> clientSeed;
-    recvPacket >> digest[0]; // 18
+    recvPacket >> digest[19];
+    recvPacket.read_skip<uint8>();
+    recvPacket.read_skip<uint8>();
+    recvPacket >> digest[2];
+    recvPacket >> digest[9];
+    recvPacket >> digest[12];
+    recvPacket.read_skip<uint64>();
+    recvPacket.read_skip<uint32>();
+    recvPacket >> digest[16];
+    recvPacket >> digest[5];
+    recvPacket >> digest[6];
+    recvPacket >> digest[8];
+    recvPacket >> clientBuild;
+    recvPacket >> digest[17];
+    recvPacket >> digest[7];
+    recvPacket >> digest[13];
+    recvPacket >> digest[15];
+    recvPacket >> digest[1];
+    recvPacket >> digest[10];
     recvPacket >> addonSize;
 
     addonsData.resize(addonSize);
     recvPacket.read((uint8*)addonsData.contents(), addonSize);
 
-    uint32 accountNameLength = recvPacket.ReadBits(11);
     recvPacket.ReadBit();
+    uint32 accountNameLength = recvPacket.ReadBits(11);
+
     account = recvPacket.ReadString(accountNameLength);
 
     if (sWorld->IsClosed())
@@ -1048,13 +1055,12 @@ int WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
 
     std::string address = GetRemoteAddress();
 
-    // TEMP! Digest fails to verify here
-    /*if (memcmp(sha.GetDigest(), digest, 20))
+    if (memcmp(sha.GetDigest(), digest, 20))
     {
         SendAuthResponseError(AUTH_FAILED);
         TC_LOG_ERROR("network", "WorldSocket::HandleAuthSession: Authentication failed for account: %u ('%s') address: %s", id, account.c_str(), address.c_str());
         return -1;
-    }*/
+    }
 
     TC_LOG_DEBUG("network", "WorldSocket::HandleAuthSession: Client '%s' authenticated successfully from %s.",
         account.c_str(),
@@ -1170,8 +1176,8 @@ int WorldSocket::HandlePing (WorldPacket& recvPacket)
 void WorldSocket::SendAuthResponseError(uint8 code)
 {
         WorldPacket packet(SMSG_AUTH_RESPONSE, 1);
-        packet << uint8(code);
         packet.WriteBit(0); // has account info
         packet.WriteBit(0); // has queue info
+        packet << uint8(code);
         SendPacket(packet);
 }

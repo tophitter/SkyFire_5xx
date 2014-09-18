@@ -325,7 +325,7 @@ enum HitInfo
     HITINFO_SWINGNOHITSOUND     = 0x00200000,               // unused?
     // 0x00400000
     HITINFO_RAGE_GAIN           = 0x00800000,
-	HITINFO_FAKE_DAMAGE         = 0x01000000, // enables damage animation even if no damage done, set only if no damage
+    HITINFO_FAKE_DAMAGE         = 0x01000000, // enables damage animation even if no damage done, set only if no damage
     HITINFO_UNK25               = 0x02000000,
     HITINFO_UNK26               = 0x04000000,
 };
@@ -705,7 +705,8 @@ enum NPCFlags
     UNIT_NPC_FLAG_PLAYER_VEHICLE        = 0x02000000,       // players with mounts that have vehicle data should have it set
     UNIT_NPC_FLAG_REFORGER              = 0x08000000,       // reforging
     UNIT_NPC_FLAG_TRANSMOGRIFIER        = 0x10000000,       // transmogrification
-    UNIT_NPC_FLAG_VAULTKEEPER           = 0x20000000        // void storage
+    UNIT_NPC_FLAG_VAULTKEEPER           = 0x20000000,       // void storage
+    UNIT_NPC_FLAG_BLACKMARKET            = 0x80000000        // blackmarket auction
 };
 
 enum MovementFlags
@@ -2152,6 +2153,10 @@ class Unit : public WorldObject
         time_t GetLastDamagedTime() const { return _lastDamagedTime; }
         void SetLastDamagedTime(time_t val) { _lastDamagedTime = val; }
 
+        uint32 GetMovementCounter() const { return m_movementCounter; }
+        void SetAutoattackOverrideSpell(SpellInfo const* spellInfo) { m_overrideAutoattackSpellInfo = spellInfo; }
+        void SetAutoattackOverrideRange(uint32 range) { m_overrideAutoattackRange = range; }
+
     protected:
         explicit Unit (bool isWorldObject);
 
@@ -2186,6 +2191,8 @@ class Unit : public WorldObject
         uint32 m_transform;
 
         Spell* m_currentSpells[CURRENT_MAX_SPELL];
+        SpellInfo const* m_overrideAutoattackSpellInfo;
+        uint32 m_overrideAutoattackRange;
 
         AuraMap m_ownedAuras;
         AuraApplicationMap m_appliedAuras;
@@ -2228,6 +2235,7 @@ class Unit : public WorldObject
         bool IsAlwaysDetectableFor(WorldObject const* seer) const;
 
         void DisableSpline();
+
     private:
         bool IsTriggeredAtSpellProcEvent(Unit* victim, Aura* aura, SpellInfo const* procSpell, uint32 procFlag, uint32 procExtra, WeaponAttackType attType, bool isVictim, bool active, SpellProcEventEntry const* & spellProcEvent);
         bool HandleAuraProcOnPowerAmount(Unit* victim, uint32 damage, AuraEffect* triggeredByAura, SpellInfo const* procSpell, uint32 procFlag, uint32 procEx, uint32 cooldown);

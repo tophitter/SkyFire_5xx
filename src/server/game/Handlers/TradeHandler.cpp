@@ -143,7 +143,7 @@ void WorldSession::SendUpdateTrade(bool trader_data /*= true*/)
             itemData.WriteByteSeq(creatorGuid[7]);
             itemData.WriteByteSeq(creatorGuid[4]);
 
-            itemData << uint32(item->GetEnchantmentId(REFORGE_ENCHANTMENT_SLOT));
+            itemData << uint32(item->GetDynamicUInt32Value(ITEM_DYNAMIC_MODIFIERS, 0));
             itemData << uint32(item->GetUInt32Value(ITEM_FIELD_DURABILITY));
             itemData << uint32(item->GetItemRandomPropertyId());
 
@@ -626,23 +626,23 @@ void WorldSession::HandleInitiateTradeOpcode(WorldPacket& recvPacket)
 {
     ObjectGuid guid;
 
-    guid[0] = recvPacket.ReadBit();
-    guid[3] = recvPacket.ReadBit();
-    guid[5] = recvPacket.ReadBit();
     guid[1] = recvPacket.ReadBit();
-    guid[4] = recvPacket.ReadBit();
-    guid[6] = recvPacket.ReadBit();
-    guid[7] = recvPacket.ReadBit();
     guid[2] = recvPacket.ReadBit();
+    guid[4] = recvPacket.ReadBit();
+    guid[5] = recvPacket.ReadBit();
+    guid[3] = recvPacket.ReadBit();
+    guid[0] = recvPacket.ReadBit();
+    guid[7] = recvPacket.ReadBit();
+    guid[6] = recvPacket.ReadBit();
 
-    recvPacket.ReadByteSeq(guid[7]);
     recvPacket.ReadByteSeq(guid[4]);
-    recvPacket.ReadByteSeq(guid[3]);
-    recvPacket.ReadByteSeq(guid[5]);
     recvPacket.ReadByteSeq(guid[1]);
+    recvPacket.ReadByteSeq(guid[5]);
+    recvPacket.ReadByteSeq(guid[7]);
+    recvPacket.ReadByteSeq(guid[3]);
     recvPacket.ReadByteSeq(guid[2]);
-    recvPacket.ReadByteSeq(guid[6]);
     recvPacket.ReadByteSeq(guid[0]);
+    recvPacket.ReadByteSeq(guid[6]);
 
     if (GetPlayer()->m_trade)
         return;

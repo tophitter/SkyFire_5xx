@@ -349,12 +349,15 @@ enum WorldIntConfigs
     CONFIG_PACKET_SPOOF_BANMODE,
     CONFIG_PACKET_SPOOF_BANDURATION,
     CONFIG_ACC_PASSCHANGESEC,
+    CONFIG_RBAC_FREE_PERMISSION_MODE,
     CONFIG_BG_REWARD_WINNER_HONOR_FIRST,
     CONFIG_BG_REWARD_WINNER_HONOR_LAST,
     CONFIG_BG_REWARD_LOSER_HONOR_FIRST,
     CONFIG_BG_REWARD_LOSER_HONOR_LAST,
     CONFIG_BG_REWARD_WINNER_CONQUEST_FIRST,
     CONFIG_BG_REWARD_WINNER_CONQUEST_LAST,
+    CONFIG_BATTLE_PET_LOADOUT_UNLOCK_COUNT,
+    CONFIG_BATTLE_PET_INITIAL_LEVEL,
     INT_CONFIG_VALUE_COUNT
 };
 
@@ -875,6 +878,9 @@ class World
         ACE_Future_Set<PreparedQueryResult> m_realmCharCallbacks;
 };
 
+typedef std::map<uint32, std::string> RealmNameMap;
+
+extern RealmNameMap realmNameStore;
 extern uint32 realmID;
 
 #define sWorld ACE_Singleton<World, ACE_Null_Mutex>::instance()

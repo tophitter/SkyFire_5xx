@@ -960,14 +960,14 @@ public:
                             {
                                 if (IsHealed && !CanRun && spell->Id == SPELL_FORTITUDE_R1)
                                 {
-                                    Talk(SAY_THANKS, caster->GetGUID());
+                                    Talk(SAY_THANKS, caster);
                                     CanRun = true;
                                 }
                                 else if (!IsHealed && spell->Id == SPELL_LESSER_HEAL_R2)
                                 {
                                     CasterGUID = caster->GetGUID();
                                     me->SetStandState(UNIT_STAND_STATE_STAND);
-                                    Talk(SAY_HEALED, caster->GetGUID());
+                                    Talk(SAY_HEALED, caster);
                                     IsHealed = true;
                                 }
                             }
@@ -977,14 +977,14 @@ public:
                             {
                                 if (IsHealed && !CanRun && spell->Id == SPELL_FORTITUDE_R1)
                                 {
-                                    Talk(SAY_THANKS, caster->GetGUID());
+                                    Talk(SAY_THANKS, caster);
                                     CanRun = true;
                                 }
                                 else if (!IsHealed && spell->Id == SPELL_LESSER_HEAL_R2)
                                 {
                                     CasterGUID = caster->GetGUID();
                                     me->SetStandState(UNIT_STAND_STATE_STAND);
-                                    Talk(SAY_HEALED, caster->GetGUID());
+                                    Talk(SAY_HEALED, caster);
                                     IsHealed = true;
                                 }
                             }
@@ -994,14 +994,14 @@ public:
                             {
                                 if (IsHealed && !CanRun && spell->Id == SPELL_FORTITUDE_R1)
                                 {
-                                    Talk(SAY_THANKS, caster->GetGUID());
+                                    Talk(SAY_THANKS, caster);
                                     CanRun = true;
                                 }
                                 else if (!IsHealed && spell->Id == SPELL_LESSER_HEAL_R2)
                                 {
                                     CasterGUID = caster->GetGUID();
                                     me->SetStandState(UNIT_STAND_STATE_STAND);
-                                    Talk(SAY_HEALED, caster->GetGUID());
+                                    Talk(SAY_HEALED, caster);
                                     IsHealed = true;
                                 }
                             }
@@ -1011,14 +1011,14 @@ public:
                             {
                                 if (IsHealed && !CanRun && spell->Id == SPELL_FORTITUDE_R1)
                                 {
-                                    Talk(SAY_THANKS, caster->GetGUID());
+                                    Talk(SAY_THANKS, caster);
                                     CanRun = true;
                                 }
                                 else if (!IsHealed && spell->Id == SPELL_LESSER_HEAL_R2)
                                 {
                                     CasterGUID = caster->GetGUID();
                                     me->SetStandState(UNIT_STAND_STATE_STAND);
-                                    Talk(SAY_HEALED, caster->GetGUID());
+                                    Talk(SAY_HEALED, caster);
                                     IsHealed = true;
                                 }
                             }
@@ -1028,14 +1028,14 @@ public:
                             {
                                 if (IsHealed && !CanRun && spell->Id == SPELL_FORTITUDE_R1)
                                 {
-                                    Talk(SAY_THANKS, caster->GetGUID());
+                                    Talk(SAY_THANKS, caster);
                                     CanRun = true;
                                 }
                                 else if (!IsHealed && spell->Id == SPELL_LESSER_HEAL_R2)
                                 {
                                     CasterGUID = caster->GetGUID();
                                     me->SetStandState(UNIT_STAND_STATE_STAND);
-                                    Talk(SAY_HEALED, caster->GetGUID());
+                                    Talk(SAY_HEALED, caster);
                                     IsHealed = true;
                                 }
                             }
@@ -1065,19 +1065,19 @@ public:
                         switch (me->GetEntry())
                         {
                             case ENTRY_SHAYA:
-                                Talk(SAY_GOODBYE, unit->GetGUID());
+                                Talk(SAY_GOODBYE, unit);
                                 break;
                             case ENTRY_ROBERTS:
-                                Talk(SAY_GOODBYE, unit->GetGUID());
+                                Talk(SAY_GOODBYE, unit);
                                 break;
                             case ENTRY_DOLF:
-                                Talk(SAY_GOODBYE, unit->GetGUID());
+                                Talk(SAY_GOODBYE, unit);
                                 break;
                             case ENTRY_KORJA:
-                                Talk(SAY_GOODBYE, unit->GetGUID());
+                                Talk(SAY_GOODBYE, unit);
                                 break;
                             case ENTRY_DG_KEL:
-                                Talk(SAY_GOODBYE, unit->GetGUID());
+                                Talk(SAY_GOODBYE, unit);
                                 break;
                         }
 
@@ -2437,6 +2437,38 @@ public:
     };
 };
 
+#define GOSSIP_TEXT_EXP           14736
+#define GOSSIP_CHOOSE_FACTION     "I would like to choose my faction"
+
+class npc_Spirit_of_Master_Shang_Xi : public CreatureScript
+{
+public:
+    npc_Spirit_of_Master_Shang_Xi() : CreatureScript("npc_Spirit_of_Master_Shang_Xi") { }
+
+    bool OnGossipHello(Player* player, Creature* creature)
+    {
+        if (creature->IsQuestGiver())
+            player->PrepareQuestMenu(creature->GetGUID());
+
+        if (player->getRace() == RACE_PANDAREN_NEUTRAL)
+        {
+            if (player->GetQuestStatus(31450) == QUEST_STATUS_INCOMPLETE)
+                player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_CHOOSE_FACTION, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
+        }
+        player->PlayerTalkClass->SendGossipMenu(GOSSIP_TEXT_EXP, creature->GetGUID());
+        return true;
+    }
+
+    bool OnGossipSelect(Player* player, Creature* /*creature*/, uint32 /*sender*/, uint32 action)
+    {
+        if (action == GOSSIP_ACTION_INFO_DEF + 1)
+            player->ShowNeutralPlayerFactionSelectUI();
+
+        player->PlayerTalkClass->SendCloseGossip();
+        return true;
+    }
+};
+
 void AddSC_npcs_special()
 {
     new npc_air_force_bots();
@@ -2459,5 +2491,6 @@ void AddSC_npcs_special()
     new npc_locksmith();
     new npc_experience();
     new npc_firework();
+    new npc_Spirit_of_Master_Shang_Xi();
     new npc_spring_rabbit();
 }

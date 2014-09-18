@@ -680,8 +680,8 @@ enum RBACPermissions
     RBAC_PERM_COMMAND_WP_UNLOAD                              = 772,
     RBAC_PERM_COMMAND_WP_RELOAD                              = 773,
     RBAC_PERM_COMMAND_WP_SHOW                                = 774,
-	RBAC_PERM_COMMAND_MODIFY_CURRENCY						 = 775, // only 4.3.4
-	RBAC_PERM_COMMAND_DEBUG_PHASE						     = 776, // Only 4.3.4
+    RBAC_PERM_COMMAND_MODIFY_CURRENCY                        = 775, // only 4.3.4
+    RBAC_PERM_COMMAND_DEBUG_PHASE                            = 776, // Only 4.3.4
 
     // custom permissions 1000+
     RBAC_PERM_MAX
@@ -761,10 +761,7 @@ class RBACData
          * }
          * @endcode
          */
-        bool HasPermission(uint32 permission) const
-        {
-            return _globalPerms.find(permission) != _globalPerms.end();
-        }
+        bool HasPermission(uint32 permission) const;
 
         // Functions enabled to be used by command system
         /// Returns all the granted permissions (after computation)

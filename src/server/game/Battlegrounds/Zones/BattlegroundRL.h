@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License along
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
 #ifndef __BATTLEGROUNDRL_H
 #define __BATTLEGROUNDRL_H
 
@@ -48,7 +48,7 @@ class BattlegroundRL : public Battleground
         /* inherited from BattlegroundClass */
         void AddPlayer(Player* player);
         void Reset();
-        void FillInitialWorldStates(WorldPacket &d);
+        void FillInitialWorldStates(WorldStateBuilder& builder);
         void StartingEventCloseDoors();
         void StartingEventOpenDoors();
 

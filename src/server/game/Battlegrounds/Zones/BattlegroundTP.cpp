@@ -29,25 +29,25 @@
 #include "World.h"
 #include "WorldPacket.h"
 
-enum BG_TP_Rewards  
-{  
-    BG_TP_WIN = 0,  
-    BG_TP_FLAG_CAP,  
-    BG_TP_MAP_COMPLETE,  
-    BG_TP_REWARD_NUM  
-};  
-  
-uint32 BG_TP_Honor[BG_HONOR_MODE_NUM][BG_TP_REWARD_NUM] =  
-{  
-    {20, 40, 40}, // normal honor  
-    {60, 40, 80}  // holiday  
-};  
-  
-uint32 BG_TP_Reputation[BG_HONOR_MODE_NUM][BG_TP_REWARD_NUM] =  
-{  
-    {0, 35, 0}, // normal honor  
-    {0, 45, 0}  // holiday  
-}; 
+enum BG_TP_Rewards
+{
+    BG_TP_WIN = 0,
+    BG_TP_FLAG_CAP,
+    BG_TP_MAP_COMPLETE,
+    BG_TP_REWARD_NUM
+};
+
+uint32 BG_TP_Honor[BG_HONOR_MODE_NUM][BG_TP_REWARD_NUM] =
+{
+    {20, 40, 40}, // normal honor
+    {60, 40, 80}  // holiday
+};
+
+uint32 BG_TP_Reputation[BG_HONOR_MODE_NUM][BG_TP_REWARD_NUM] =
+{
+    {0, 35, 0}, // normal honor
+    {0, 45, 0}  // holiday
+};
 
 BattlegroundTP::BattlegroundTP()
 {
@@ -899,50 +899,50 @@ WorldSafeLocsEntry const* BattlegroundTP::GetClosestGraveYard(Player* player)
 }
 
 
-void BattlegroundTP::FillInitialWorldStates(WorldPacket& data)
+void BattlegroundTP::FillInitialWorldStates(WorldStateBuilder& builder)
 {
-    data << uint32(BG_TP_FLAG_CAPTURES_ALLIANCE) << uint32(GetTeamScore(TEAM_ALLIANCE));
-    data << uint32(BG_TP_FLAG_CAPTURES_HORDE) << uint32(GetTeamScore(TEAM_HORDE));
+    builder.AppendState(BG_TP_FLAG_CAPTURES_ALLIANCE, GetTeamScore(TEAM_ALLIANCE));
+    builder.AppendState(BG_TP_FLAG_CAPTURES_HORDE, GetTeamScore(TEAM_HORDE));
 
 
     if (_flagState[TEAM_ALLIANCE] == BG_TP_FLAG_STATE_ON_GROUND)
-        data << uint32(BG_TP_FLAG_UNK_ALLIANCE) << uint32(-1);
+        builder.AppendState(BG_TP_FLAG_UNK_ALLIANCE, -1);
     else if (_flagState[TEAM_ALLIANCE] == BG_TP_FLAG_STATE_ON_PLAYER)
-        data << uint32(BG_TP_FLAG_UNK_ALLIANCE) << uint32(1);
+        builder.AppendState(BG_TP_FLAG_UNK_ALLIANCE, 1);
     else
-        data << uint32(BG_TP_FLAG_UNK_ALLIANCE) << uint32(0);
+        builder.AppendState(BG_TP_FLAG_UNK_ALLIANCE, 0);
 
 
     if (_flagState[TEAM_HORDE] == BG_TP_FLAG_STATE_ON_GROUND)
-        data << uint32(BG_TP_FLAG_UNK_HORDE) << uint32(-1);
+        builder.AppendState(BG_TP_FLAG_UNK_HORDE, -1);
     else if (_flagState[TEAM_HORDE] == BG_TP_FLAG_STATE_ON_PLAYER)
-        data << uint32(BG_TP_FLAG_UNK_HORDE) << uint32(1);
+        builder.AppendState(BG_TP_FLAG_UNK_HORDE, 1);
     else
-        data << uint32(BG_TP_FLAG_UNK_HORDE) << uint32(0);
+        builder.AppendState(BG_TP_FLAG_UNK_HORDE, 0);
 
 
-    data << uint32(BG_TP_FLAG_CAPTURES_MAX) << uint32(BG_TP_MAX_TEAM_SCORE);
+    builder.AppendState(BG_TP_FLAG_CAPTURES_MAX, BG_TP_MAX_TEAM_SCORE);
 
 
     if (GetStatus() == STATUS_IN_PROGRESS)
     {
-        data << uint32(BG_TP_STATE_TIMER_ACTIVE) << uint32(1);
-        data << uint32(BG_TP_STATE_TIMER) << uint32(25-_minutesElapsed);
+        builder.AppendState(BG_TP_STATE_TIMER_ACTIVE, 1);
+        builder.AppendState(BG_TP_STATE_TIMER, 25-_minutesElapsed);
     }
     else
-        data << uint32(BG_TP_STATE_TIMER_ACTIVE) << uint32(0);
+        builder.AppendState(BG_TP_STATE_TIMER_ACTIVE, 0);
 
 
     if (_flagState[TEAM_HORDE] == BG_TP_FLAG_STATE_ON_PLAYER)
-        data << uint32(BG_TP_FLAG_STATE_HORDE) << uint32(2);
+        builder.AppendState(BG_TP_FLAG_STATE_HORDE, 2);
     else
-        data << uint32(BG_TP_FLAG_STATE_HORDE) << uint32(1);
+        builder.AppendState(BG_TP_FLAG_STATE_HORDE, 1);
 
 
     if (_flagState[TEAM_ALLIANCE] == BG_TP_FLAG_STATE_ON_PLAYER)
-        data << uint32(BG_TP_FLAG_STATE_ALLIANCE) << uint32(2);
+        builder.AppendState(BG_TP_FLAG_STATE_ALLIANCE, 2);
     else
-        data << uint32(BG_TP_FLAG_STATE_ALLIANCE) << uint32(1);
+        builder.AppendState(BG_TP_FLAG_STATE_ALLIANCE, 1);
 }
 
 

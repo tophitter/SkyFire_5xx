@@ -57,6 +57,7 @@ class PlayerSocial;
 class SpellCastTargets;
 class UpdateMask;
 class PhaseMgr;
+class BattlePetMgr;
 
 typedef std::deque<Mail*> PlayerMails;
 
@@ -535,7 +536,7 @@ enum PlayerFlags
     PLAYER_FLAGS_UNK21                  = 0x00200000,
     PLAYER_FLAGS_COMMENTATOR2           = 0x00400000,
     PLAYER_FLAGS_ALLOW_ONLY_ABILITY     = 0x00800000,       // used by bladestorm and killing spree, allowed only spells with SPELL_ATTR0_REQ_AMMO, SPELL_EFFECT_ATTACK, checked only for active player
-    PLAYER_FLAGS_UNK24                  = 0x01000000,       // disabled all melee ability on tab include autoattack
+    PLAYER_FLAGS_BATTLE_PET_ENABLED     = 0x01000000,
     PLAYER_FLAGS_NO_XP_GAIN             = 0x02000000,
     PLAYER_FLAGS_UNK26                  = 0x04000000,
     PLAYER_FLAGS_AUTO_DECLINE_GUILD     = 0x08000000,       // Automatically declines guild invites
@@ -602,6 +603,7 @@ enum AtLoginFlags
 };
 
 typedef std::map<uint32, QuestStatusData> QuestStatusMap;
+typedef std::map<uint32, uint32> QuestObjectiveStatusMap;
 typedef std::set<uint32> RewardedQuestSet;
 
 //               quest,  keep
@@ -615,7 +617,7 @@ enum QuestSlotOffsets
     QUEST_TIME_OFFSET   = 4
 };
 
-#define MAX_QUEST_OFFSET 5
+#define MAX_QUEST_OFFSET 15
 
 enum QuestSlotStateMask
 {
@@ -891,6 +893,9 @@ enum PlayerLoginQueryIndex
     PLAYER_LOGIN_QUERY_LOAD_VOID_STORAGE            = 33,
     PLAYER_LOGIN_QUERY_LOAD_CURRENCY                = 34,
     PLAYER_LOGIN_QUERY_LOAD_CUF_PROFILES            = 35,
+    PLAYER_LOGIN_QUERY_LOAD_BATTLE_PETS             = 36,
+    PLAYER_LOGIN_QUERY_LOAD_BATTLE_PET_SLOTS        = 37,
+    PLAYER_LOGIN_QUERY_LOAD_QUEST_OBJECTIVE_STATUS  = 38,
     MAX_PLAYER_LOGIN_QUERY
 };
 
@@ -1340,8 +1345,6 @@ class Player : public Unit, public GridObject<Player>
         /// Handles whispers from Addons and players based on sender, receiver's guid and language.
         void Whisper(std::string const& text, const uint32 language, uint64 receiver);
         void WhisperAddon(std::string const& text, std::string const& prefix, Player* receiver);
-        /// Constructs the player Chat data for the specific functions to use
-        void BuildPlayerChat(WorldPacket* data, uint8 msgtype, std::string const& text, uint32 language, const char* addonPrefix = NULL) const;
 
         /*********************************************************/
         /***                    STORAGE SYSTEM                 ***/
@@ -1371,8 +1374,8 @@ class Player : public Unit, public GridObject<Player>
         static bool IsBankPos(uint8 bag, uint8 slot);
         bool IsValidPos(uint16 pos, bool explicit_pos) { return IsValidPos(pos >> 8, pos & 255, explicit_pos); }
         bool IsValidPos(uint8 bag, uint8 slot, bool explicit_pos);
-        uint8 GetBankBagSlotCount() const { return 0;/*GetByteValue(PLAYER_FIELD_REST_STATE, 2);*/ }
-        void SetBankBagSlotCount(uint8 count) { /*SetByteValue(PLAYER_FIELD_REST_STATE, 2, count);*/ }
+        uint8 GetBankBagSlotCount() const { return GetByteValue(PLAYER_FIELD_REST_STATE, 2); }
+        void SetBankBagSlotCount(uint8 count) { SetByteValue(PLAYER_FIELD_REST_STATE, 2, count); }
         bool HasItemCount(uint32 item, uint32 count = 1, bool inBankAlso = false) const;
         bool HasItemFitToSpellRequirements(SpellInfo const* spellInfo, Item const* ignoreItem = NULL) const;
         bool CanNoReagentCast(SpellInfo const* spellInfo) const;
@@ -1600,10 +1603,12 @@ class Player : public Unit, public GridObject<Player>
         void MoneyChanged(uint32 value);
         void ReputationChanged(FactionEntry const* factionEntry);
         void ReputationChanged2(FactionEntry const* factionEntry);
+        void ReputationChangedQuestCheck(FactionEntry const* factionEntry);
         bool HasQuestForItem(uint32 itemId) const;
         bool HasQuestForGO(int32 goId) const;
         void UpdateForQuestWorldObjects();
         bool CanShareQuest(uint32 questId) const;
+        void QuestObjectiveSatisfy(uint32 objectId, uint32 amount, uint8 type = 0u, uint64 guid = 0u);
 
         void SendQuestComplete(Quest const* quest);
         void SendQuestReward(Quest const* quest, uint32 XP);
@@ -1612,8 +1617,8 @@ class Player : public Unit, public GridObject<Player>
         void SendCanTakeQuestResponse(QuestFailedReason msg) const;
         void SendQuestConfirmAccept(Quest const* quest, Player* pReceiver);
         void SendPushToPartyResponse(Player* player, uint8 msg);
-        void SendQuestUpdateAddCreatureOrGo(Quest const* quest, uint64 guid, uint32 creatureOrGOIdx, uint16 oldCount, uint16 addCount);
-        void SendQuestUpdateAddPlayer(Quest const* quest, uint16 oldCount, uint16 addCount);
+        void SendQuestUpdateAddCredit(Quest const* quest, QuestObjective const* objective, ObjectGuid guid, uint16 oldCount, uint16 addCount);
+        void SendQuestUpdateAddPlayer(Quest const* quest, QuestObjective const* objective, uint16 oldCount, uint16 addCount);
 
         uint64 GetDivider() const { return m_divider; }
         void SetDivider(uint64 guid) { m_divider = guid; }
@@ -1785,6 +1790,8 @@ class Player : public Unit, public GridObject<Player>
         void SetSpecsCount(uint8 count) { _talentMgr->SpecsCount = count; }
 
         bool ResetTalents(bool noCost = false, bool resetTalents = true, bool resetSpecialization = true);
+        bool RemoveTalent(uint32 talentId);
+
         uint32 GetNextResetTalentsCost() const;
         void InitTalentForLevel();
         void BuildPlayerTalentsInfoData(WorldPacket* data);
@@ -2123,6 +2130,8 @@ class Player : public Unit, public GridObject<Player>
         void UpdateSkillsToMaxSkillsForLevel();             // for .levelup
         void ModifySkillBonus(uint32 skillid, int32 val, bool talent);
 
+        BattlePetMgr* GetBattlePetMgr() { return m_battlePetMgr; }
+
         /*********************************************************/
         /***                  PVP SYSTEM                       ***/
         /*********************************************************/
@@ -2202,8 +2211,8 @@ class Player : public Unit, public GridObject<Player>
         std::vector<ItemSetEffect*> ItemSetEff;
 
         void SendLoot(uint64 guid, LootType loot_type);
-        void SendLootRelease(uint64 guid);
-        void SendNotifyLootItemRemoved(uint8 lootSlot);
+        void SendLootRelease(ObjectGuid guid);
+        void SendNotifyLootItemRemoved(uint8 lootSlot, ObjectGuid guid);
         void SendNotifyLootMoneyRemoved();
 
         /*********************************************************/
@@ -2426,6 +2435,7 @@ class Player : public Unit, public GridObject<Player>
         void SetAuraUpdateMaskForRaid(uint8 slot) { m_auraRaidUpdateMask |= (uint64(1) << slot); }
         Player* GetNextRandomRaidMember(float radius);
         PartyResult CanUninviteFromGroup() const;
+        void SetReadyCheckTimer(uint32 timer) { _readyCheckTimer = timer; }
 
         // Battleground / Battlefield Group System
         void SetBattlegroundOrBattlefieldRaid(Group* group, int8 subgroup = -1);
@@ -2527,11 +2537,18 @@ class Player : public Unit, public GridObject<Player>
         VoidStorageItem* GetVoidStorageItem(uint8 slot) const;
         VoidStorageItem* GetVoidStorageItem(uint64 id, uint8& slot) const;
 
+        void ReadyCheckComplete();
+
+        void ShowNeutralPlayerFactionSelectUI();
+
+        uint32 GetQuestObjectiveCounter(uint32 objectiveId) const;
+
     protected:
         // Gamemaster whisper whitelist
         WhisperListContainer WhisperList;
         uint32 m_regenTimerCount;
         uint32 m_holyPowerRegenTimerCount;
+        uint32 m_chiPowerRegenTimerCount;
         uint32 m_focusRegenTimerCount;
         float m_powerFraction[MAX_POWERS_PER_CLASS];
         uint32 m_contestedPvPTimer;
@@ -2584,6 +2601,7 @@ class Player : public Unit, public GridObject<Player>
         void _LoadMail();
         void _LoadMailedItems(Mail* mail);
         void _LoadQuestStatus(PreparedQueryResult result);
+        void _LoadQuestObjectiveStatus(PreparedQueryResult result);
         void _LoadQuestStatusRewarded(PreparedQueryResult result);
         void _LoadDailyQuestStatus(PreparedQueryResult result);
         void _LoadWeeklyQuestStatus(PreparedQueryResult result);
@@ -2615,6 +2633,7 @@ class Player : public Unit, public GridObject<Player>
         void _SaveVoidStorage(SQLTransaction& trans);
         void _SaveMail(SQLTransaction& trans);
         void _SaveQuestStatus(SQLTransaction& trans);
+        void _SaveQuestObjectiveStatus(SQLTransaction& trans);
         void _SaveDailyQuestStatus(SQLTransaction& trans);
         void _SaveWeeklyQuestStatus(SQLTransaction& trans);
         void _SaveMonthlyQuestStatus(SQLTransaction& trans);
@@ -2692,6 +2711,7 @@ class Player : public Unit, public GridObject<Player>
         int8 m_comboPoints;
 
         QuestStatusMap m_QuestStatus;
+        QuestObjectiveStatusMap m_questObjectiveStatus;
         QuestStatusSaveMap m_QuestStatusSave;
 
         RewardedQuestSet m_RewardedQuests;
@@ -2747,6 +2767,7 @@ class Player : public Unit, public GridObject<Player>
 
         uint32 m_drunkTimer;
         uint32 m_weaponChangeTimer;
+        uint32 _readyCheckTimer;
 
         uint32 m_zoneUpdateId;
         uint32 m_zoneUpdateTimer;
@@ -2877,6 +2898,8 @@ class Player : public Unit, public GridObject<Player>
         uint32 _maxPersonalArenaRate;
 
         PhaseMgr phaseMgr;
+
+        BattlePetMgr* m_battlePetMgr;
 };
 
 void AddItemsSetItem(Player*player, Item* item);

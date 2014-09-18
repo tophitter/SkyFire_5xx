@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License along
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
 #ifndef __BATTLEGROUNDNA_H
 #define __BATTLEGROUNDNA_H
 
@@ -58,7 +58,7 @@ class BattlegroundNA : public Battleground
         void HandleAreaTrigger(Player* Source, uint32 Trigger);
         bool SetupBattleground();
         void Reset();
-        void FillInitialWorldStates(WorldPacket &d);
+        void FillInitialWorldStates(WorldStateBuilder &builder);
         void HandleKillPlayer(Player* player, Player* killer);
 };
 #endif

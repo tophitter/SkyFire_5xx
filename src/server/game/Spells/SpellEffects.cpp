@@ -67,6 +67,7 @@
 #include "GuildMgr.h"
 #include "ReputationMgr.h"
 #include "AreaTrigger.h"
+#include "BattlePetMgr.h"
 
 pEffect SpellEffects[TOTAL_SPELL_EFFECTS]=
 {
@@ -239,7 +240,7 @@ pEffect SpellEffects[TOTAL_SPELL_EFFECTS]=
     &Spell::EffectGiveCurrency,                             //166 SPELL_EFFECT_GIVE_CURRENCY
     &Spell::EffectNULL,                                     //167 SPELL_EFFECT_167
     &Spell::EffectNULL,                                     //168 SPELL_EFFECT_168
-    &Spell::EffectNULL,                                     //169 SPELL_EFFECT_DESTROY_ITEM
+    &Spell::EffectDestroyItem,                              //169 SPELL_EFFECT_DESTROY_ITEM
     &Spell::EffectNULL,                                     //170 SPELL_EFFECT_170
     &Spell::EffectNULL,                                     //171 SPELL_EFFECT_171
     &Spell::EffectResurrectWithAura,                        //172 SPELL_EFFECT_RESURRECT_WITH_AURA
@@ -251,8 +252,39 @@ pEffect SpellEffects[TOTAL_SPELL_EFFECTS]=
     &Spell::EffectUnused,                                   //178 SPELL_EFFECT_178 unused
     &Spell::EffectCreateAreaTrigger,                        //179 SPELL_EFFECT_CREATE_AREATRIGGER
     &Spell::EffectUnused,                                   //180 SPELL_EFFECT_180 unused
-    &Spell::EffectUnused,                                   //181 SPELL_EFFECT_181 unused
+    &Spell::EffectRemoveTalent,                             //181 SPELL_EFFECT_REMOVE_TALENT
     &Spell::EffectNULL,                                     //182 SPELL_EFFECT_182
+    &Spell::EffectNULL,                                     //183 SPELL_EFFECT_183
+    &Spell::EffectNULL,                                     //184 SPELL_EFFECT_184
+    &Spell::EffectNULL,                                     //185 SPELL_EFFECT_185
+    &Spell::EffectNULL,                                     //186 SPELL_EFFECT_186
+    &Spell::EffectNULL,                                     //187 SPELL_EFFECT_187
+    &Spell::EffectNULL,                                     //188 SPELL_EFFECT_188
+    &Spell::EffectNULL,                                     //189 SPELL_EFFECT_189
+    &Spell::EffectNULL,                                     //190 SPELL_EFFECT_190
+    &Spell::EffectNULL,                                     //191 SPELL_EFFECT_191
+    &Spell::EffectNULL,                                     //192 SPELL_EFFECT_192
+    &Spell::EffectNULL,                                     //193 SPELL_EFFECT_193
+    &Spell::EffectNULL,                                     //194 SPELL_EFFECT_194
+    &Spell::EffectNULL,                                     //195 SPELL_EFFECT_195
+    &Spell::EffectNULL,                                     //196 SPELL_EFFECT_196
+    &Spell::EffectNULL,                                     //197 SPELL_EFFECT_197
+    &Spell::EffectNULL,                                     //198 SPELL_EFFECT_198
+    &Spell::EffectNULL,                                     //199 SPELL_EFFECT_199
+    &Spell::EffectNULL,                                     //200 SPELL_EFFECT_200
+    &Spell::EffectBattlePetsUnlock,                         //201 SPELL_EFFECT_BATTLE_PET_UNLOCK
+    &Spell::EffectNULL,                                     //202 SPELL_EFFECT_202
+    &Spell::EffectNULL,                                     //203 SPELL_EFFECT_203
+    &Spell::EffectNULL,                                     //204 SPELL_EFFECT_204
+    &Spell::EffectNULL,                                     //205 SPELL_EFFECT_205
+    &Spell::EffectNULL,                                     //206 SPELL_EFFECT_206
+    &Spell::EffectNULL,                                     //207 SPELL_EFFECT_207
+    &Spell::EffectNULL,                                     //208 SPELL_EFFECT_208
+    &Spell::EffectNULL,                                     //209 SPELL_EFFECT_209
+    &Spell::EffectNULL,                                     //210 SPELL_EFFECT_210
+    &Spell::EffectNULL,                                     //211 SPELL_EFFECT_211
+    &Spell::EffectNULL,                                     //212 SPELL_EFFECT_212
+    &Spell::EffectNULL,                                     //213 SPELL_EFFECT_213
 };
 
 void Spell::EffectNULL(SpellEffIndex /*effIndex*/)
@@ -2164,12 +2196,31 @@ void Spell::EffectSummonType(SpellEffIndex effIndex)
                     if (!summon || !summon->HasUnitTypeMask(UNIT_MASK_MINION))
                         return;
 
-                    summon->SelectLevel(summon->GetCreatureTemplate());       // some summoned creaters have different from 1 DB data for level/hp
+                    Player* player = m_caster->ToPlayer();
+                    BattlePetMgr* battlePetMgr = player->GetBattlePetMgr();
+
+                    BattlePet* battlePet = battlePetMgr->GetBattlePet(battlePetMgr->GetCurrentSummonId());
+                    if (!battlePet)
+                        return;
+
+                    battlePetMgr->SetCurrentSummon(summon);
+
+                    player->SetUInt64Value(PLAYER_FIELD_SUMMONED_BATTLE_PET_GUID, battlePet->GetId());
+                    player->SetUInt32Value(PLAYER_FIELD_CURRENT_BATTLE_PET_BREED_QUALITY, battlePet->GetQuality());
+
+                    summon->SetCreateHealth(battlePet->GetMaxHealth());
+                    summon->SetMaxHealth(battlePet->GetMaxHealth());
+                    summon->SetHealth(battlePet->GetCurrentHealth());
+
+                    summon->SetUInt64Value(UNIT_FIELD_BATTLE_PET_COMPANION_GUID, battlePet->GetId());
+                    summon->SetUInt32Value(UNIT_FIELD_BATTLE_PET_COMPANION_NAME_TIMESTAMP, battlePet->GetTimestamp());
+                    summon->SetUInt64Value(UNIT_FIELD_CREATED_BY, player->GetGUID());
+                    summon->SetUInt32Value(UNIT_FIELD_WILD_BATTLE_PET_LEVEL, battlePet->GetLevel());
                     summon->SetUInt32Value(UNIT_FIELD_NPC_FLAGS, summon->GetCreatureTemplate()->npcflag);
 
                     summon->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC | UNIT_FLAG_IMMUNE_TO_NPC);
-
                     summon->AI()->EnterEvadeMode();
+
                     break;
                 }
                 default:
@@ -3999,9 +4050,44 @@ void Spell::EffectDuel(SpellEffIndex effIndex)
     //END
 
     // Send request
-    WorldPacket data(SMSG_DUEL_REQUESTED, 8 + 8);
-    data << uint64(pGameObj->GetGUID());
-    data << uint64(caster->GetGUID());
+    ObjectGuid arbiterGuid = pGameObj->GetGUID();
+    ObjectGuid casterGuid = caster->GetGUID();
+
+    WorldPacket data(SMSG_DUEL_REQUESTED, 9 + 9);
+    data.WriteBit(arbiterGuid[5]);
+    data.WriteBit(casterGuid[4]);
+    data.WriteBit(casterGuid[2]);
+    data.WriteBit(casterGuid[7]);
+    data.WriteBit(arbiterGuid[0]);
+    data.WriteBit(casterGuid[5]);
+    data.WriteBit(arbiterGuid[4]);
+    data.WriteBit(arbiterGuid[6]);
+    data.WriteBit(casterGuid[1]);
+    data.WriteBit(casterGuid[3]);
+    data.WriteBit(casterGuid[6]);
+    data.WriteBit(arbiterGuid[7]);
+    data.WriteBit(arbiterGuid[3]);
+    data.WriteBit(arbiterGuid[2]);
+    data.WriteBit(arbiterGuid[1]);
+    data.WriteBit(casterGuid[0]);
+
+    data.WriteByteSeq(arbiterGuid[5]);
+    data.WriteByteSeq(arbiterGuid[3]);
+    data.WriteByteSeq(casterGuid[7]);
+    data.WriteByteSeq(casterGuid[4]);
+    data.WriteByteSeq(arbiterGuid[7]);
+    data.WriteByteSeq(casterGuid[3]);
+    data.WriteByteSeq(casterGuid[6]);
+    data.WriteByteSeq(casterGuid[0]);
+    data.WriteByteSeq(arbiterGuid[4]);
+    data.WriteByteSeq(casterGuid[2]);
+    data.WriteByteSeq(casterGuid[1]);
+    data.WriteByteSeq(arbiterGuid[0]);
+    data.WriteByteSeq(arbiterGuid[2]);
+    data.WriteByteSeq(arbiterGuid[6]);
+    data.WriteByteSeq(arbiterGuid[1]);
+    data.WriteByteSeq(casterGuid[5]);
+
     caster->GetSession()->SendPacket(&data);
     target->GetSession()->SendPacket(&data);
 
@@ -4117,13 +4203,16 @@ void Spell::EffectApplyGlyph(SpellEffIndex effIndex)
     {
         case 0:
         case 1:
-        case 6: minLevel = 25; break;
+            minLevel = 25;
+            break;
         case 2:
         case 3:
-        case 7: minLevel = 50; break;
+            minLevel = 50;
+            break;
         case 4:
         case 5:
-        case 8: minLevel = 75; break;
+            minLevel = 75;
+            break;
     }
 
     if (minLevel && m_caster->getLevel() < minLevel)
@@ -5280,12 +5369,17 @@ void Spell::EffectQuestStart(SpellEffIndex effIndex)
     if (!unitTarget || unitTarget->GetTypeId() != TYPEID_PLAYER)
         return;
 
+    uint32 questId = m_spellInfo->Effects[effIndex].MiscValue;
     Player* player = unitTarget->ToPlayer();
-    if (Quest const* qInfo = sObjectMgr->GetQuestTemplate(m_spellInfo->Effects[effIndex].MiscValue))
+
+    if (Quest const* qInfo = sObjectMgr->GetQuestTemplate(questId))
     {
         if (player->CanTakeQuest(qInfo, false) && player->CanAddQuest(qInfo, false))
         {
             player->AddQuest(qInfo, NULL);
+
+            if (player->CanCompleteQuest(questId))
+                player->CompleteQuest(questId);
         }
     }
 }
@@ -5608,9 +5702,26 @@ void Spell::EffectPlaySound(SpellEffIndex effIndex)
         return;
     }
 
-    WorldPacket data(SMSG_PLAY_SOUND, 4);
+    ObjectGuid guid = m_caster->GetGUID();
+
+    WorldPacket data(SMSG_PLAY_SOUND, 4 + 9);
+    data.WriteBit(guid[2]);
+    data.WriteBit(guid[3]);
+    data.WriteBit(guid[7]);
+    data.WriteBit(guid[6]);
+    data.WriteBit(guid[0]);
+    data.WriteBit(guid[5]);
+    data.WriteBit(guid[4]);
+    data.WriteBit(guid[1]);
     data << uint32(soundId);
-    data << uint64(m_caster->GetGUID());
+    data.WriteByteSeq(guid[3]);
+    data.WriteByteSeq(guid[2]);
+    data.WriteByteSeq(guid[4]);
+    data.WriteByteSeq(guid[7]);
+    data.WriteByteSeq(guid[5]);
+    data.WriteByteSeq(guid[0]);
+    data.WriteByteSeq(guid[6]);
+    data.WriteByteSeq(guid[1]);
     unitTarget->ToPlayer()->GetSession()->SendPacket(&data);
 }
 
@@ -5645,6 +5756,21 @@ void Spell::EffectGiveCurrency(SpellEffIndex effIndex)
         return;
 
     unitTarget->ToPlayer()->ModifyCurrency(m_spellInfo->Effects[effIndex].MiscValue, damage);
+}
+
+void Spell::EffectDestroyItem(SpellEffIndex effIndex)
+{
+    if (effectHandleMode != SPELL_EFFECT_HANDLE_HIT_TARGET)
+        return;
+
+    if (!unitTarget || unitTarget->GetTypeId() != TYPEID_PLAYER)
+        return;
+
+    Player* player = unitTarget->ToPlayer();
+    uint32 itemId = m_spellInfo->Effects[effIndex].ItemType;
+
+    if (Item* item = player->GetItemByEntry(itemId))
+        player->DestroyItem(item->GetBagSlot(), item->GetSlot(), true);
 }
 
 void Spell::EffectCastButtons(SpellEffIndex effIndex)
@@ -5748,20 +5874,41 @@ void Spell::EffectBind(SpellEffIndex effIndex)
 
     // binding
     WorldPacket data(SMSG_BINDPOINTUPDATE, 4 + 4 + 4 + 4 + 4);
-    data << float(homeLoc.GetPositionZ());
     data << float(homeLoc.GetPositionX());
-    data << uint32(homeLoc.GetMapId());
     data << float(homeLoc.GetPositionY());
+    data << float(homeLoc.GetPositionZ());
     data << uint32(areaId);
+    data << uint32(homeLoc.GetMapId());
+
     player->SendDirectMessage(&data);
 
     TC_LOG_DEBUG("spells", "EffectBind: New homebind X: %f, Y: %f, Z: %f, MapId: %u, AreaId: %u",
         homeLoc.GetPositionX(), homeLoc.GetPositionY(), homeLoc.GetPositionZ(), homeLoc.GetMapId(), areaId);
 
+    ObjectGuid guid = m_caster->GetGUID();
+
     // zone update
-    data.Initialize(SMSG_PLAYERBOUND, 8 + 4);
-    data << uint64(m_caster->GetGUID());
+    data.Initialize(SMSG_PLAYERBOUND, 1 + 8 + 4);
+    data.WriteBit(guid[2]);
+    data.WriteBit(guid[4]);
+    data.WriteBit(guid[0]);
+    data.WriteBit(guid[3]);
+    data.WriteBit(guid[6]);
+    data.WriteBit(guid[7]);
+    data.WriteBit(guid[5]);
+    data.WriteBit(guid[1]);
+
+    data.WriteByteSeq(guid[6]);
+    data.WriteByteSeq(guid[1]);
+    data.WriteByteSeq(guid[2]);
+    data.WriteByteSeq(guid[3]);
+    data.WriteByteSeq(guid[4]);
+    data.WriteByteSeq(guid[5]);
+    data.WriteByteSeq(guid[7]);
+    data.WriteByteSeq(guid[0]);
+
     data << uint32(areaId);
+
     player->SendDirectMessage(&data);
 }
 
@@ -5836,4 +5983,42 @@ void Spell::EffectCreateAreaTrigger(SpellEffIndex effIndex)
     AreaTrigger * areaTrigger = new AreaTrigger;
     if (!areaTrigger->CreateAreaTrigger(sObjectMgr->GenerateLowGuid(HIGHGUID_AREATRIGGER), triggerEntry, GetCaster(), GetSpellInfo(), pos))
         delete areaTrigger;
+}
+
+void Spell::EffectRemoveTalent(SpellEffIndex effIndex)
+{
+    if (effectHandleMode != SPELL_EFFECT_HANDLE_HIT)
+        return;
+
+    Player* player = GetCaster()->ToPlayer();
+
+    // Blizz sends talentId as glyphIndex
+    if (player)
+        player->RemoveTalent(m_glyphIndex);
+}
+
+void Spell::EffectBattlePetsUnlock(SpellEffIndex effIndex)
+{
+    if (effectHandleMode != SPELL_EFFECT_HANDLE_HIT)
+        return;
+
+    Player* player = GetCaster()->ToPlayer();
+    if (!player)
+        return;
+
+    BattlePetMgr* battlePetMgr = player->GetBattlePetMgr();
+    if (!battlePetMgr)
+        return;
+
+    if (player->HasFlag(PLAYER_FIELD_PLAYER_FLAGS, PLAYER_FLAGS_BATTLE_PET_ENABLED))
+        return;
+
+    player->SetFlag(PLAYER_FIELD_PLAYER_FLAGS, PLAYER_FLAGS_BATTLE_PET_ENABLED);
+
+    player->learnSpell(SPELL_BATTLE_PET_TRAINING_PASSIVE, false);
+    player->learnSpell(SPELL_TRACK_PETS, false);
+    player->learnSpell(SPELL_REVIVE_BATTLE_PETS, false);
+
+    for (uint8 i = 0; i < sWorld->getIntConfig(CONFIG_BATTLE_PET_LOADOUT_UNLOCK_COUNT); i++)
+        battlePetMgr->UnlockLoadoutSlot(i);
 }

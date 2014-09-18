@@ -44,7 +44,7 @@ struct EnumName
 
 #define CREATE_NAMED_ENUM(VALUE) { VALUE, STRINGIZE(VALUE) }
 
-#define NPCFLAG_COUNT   24
+#define NPCFLAG_COUNT   27
 
 EnumName<NPCFlags, int32> const npcFlagTexts[NPCFLAG_COUNT] =
 {
@@ -58,6 +58,7 @@ EnumName<NPCFlags, int32> const npcFlagTexts[NPCFLAG_COUNT] =
     { UNIT_NPC_FLAG_PETITIONER,         LANG_NPCINFO_PETITIONER         },
     { UNIT_NPC_FLAG_PLAYER_VEHICLE,     LANG_NPCINFO_PLAYER_VEHICLE     },
     { UNIT_NPC_FLAG_QUESTGIVER,         LANG_NPCINFO_QUESTGIVER         },
+    { UNIT_NPC_FLAG_REFORGER,           LANG_NPCINFO_REFORGER           },
     { UNIT_NPC_FLAG_REPAIR,             LANG_NPCINFO_REPAIR             },
     { UNIT_NPC_FLAG_SPELLCLICK,         LANG_NPCINFO_SPELLCLICK         },
     { UNIT_NPC_FLAG_SPIRITGUIDE,        LANG_NPCINFO_SPIRITGUIDE        },
@@ -67,6 +68,8 @@ EnumName<NPCFlags, int32> const npcFlagTexts[NPCFLAG_COUNT] =
     { UNIT_NPC_FLAG_TRAINER,            LANG_NPCINFO_TRAINER            },
     { UNIT_NPC_FLAG_TRAINER_CLASS,      LANG_NPCINFO_TRAINER_CLASS      },
     { UNIT_NPC_FLAG_TRAINER_PROFESSION, LANG_NPCINFO_TRAINER_PROFESSION },
+    { UNIT_NPC_FLAG_TRANSMOGRIFIER,     LANG_NPCINFO_TRANSMOGRIFIER     },
+    { UNIT_NPC_FLAG_VAULTKEEPER,        LANG_NPCINFO_VAULTKEEPER        },
     { UNIT_NPC_FLAG_VENDOR,             LANG_NPCINFO_VENDOR             },
     { UNIT_NPC_FLAG_VENDOR_AMMO,        LANG_NPCINFO_VENDOR_AMMO        },
     { UNIT_NPC_FLAG_VENDOR_FOOD,        LANG_NPCINFO_VENDOR_FOOD        },
@@ -736,7 +739,8 @@ public:
             if (target->GetUInt32Value(UNIT_FIELD_FLAGS) & unitFlags[i].Value)
                 handler->PSendSysMessage("%s (0x%X)", unitFlags[i].Name, unitFlags[i].Value);
 
-        handler->PSendSysMessage(LANG_NPCINFO_FLAGS, target->GetUInt32Value(UNIT_FIELD_FLAGS2), target->GetUInt32Value(OBJECT_FIELD_DYNAMIC_FLAGS), target->getFaction());
+        handler->PSendSysMessage(LANG_NPCINFO_FLAGS2, target->GetUInt32Value(UNIT_FIELD_FLAGS2), target->GetUInt32Value(OBJECT_FIELD_DYNAMIC_FLAGS), target->getFaction());
+
         handler->PSendSysMessage(LANG_COMMAND_RAWPAWNTIMES, defRespawnDelayStr.c_str(), curRespawnDelayStr.c_str());
         handler->PSendSysMessage(LANG_NPCINFO_LOOT,  cInfo->lootid, cInfo->pickpocketLootId, cInfo->SkinLootId);
         handler->PSendSysMessage(LANG_NPCINFO_DUNGEON_ID, target->GetInstanceId());
@@ -1211,7 +1215,7 @@ public:
             return false;
         }
 
-        creature->MonsterSay(args, LANG_UNIVERSAL, 0);
+        creature->MonsterSay(args, LANG_UNIVERSAL, NULL);
 
         // make some emotes
         char lastchar = args[strlen(args) - 1];
@@ -1298,10 +1302,11 @@ public:
         uint64 receiver_guid = atol(receiver_str);
 
         // check online security
-        if (handler->HasLowerSecurity(ObjectAccessor::FindPlayer(receiver_guid), 0))
+        Player* receiver = ObjectAccessor::FindPlayer(receiver_guid);
+        if (handler->HasLowerSecurity(receiver, 0))
             return false;
 
-        creature->MonsterWhisper(text, receiver_guid);
+        creature->MonsterWhisper(text, receiver);
         return true;
     }
 
@@ -1318,7 +1323,7 @@ public:
             return false;
         }
 
-        creature->MonsterYell(args, LANG_UNIVERSAL, 0);
+        creature->MonsterYell(args, LANG_UNIVERSAL, NULL);
 
         // make an emote
         creature->HandleEmoteCommand(EMOTE_ONESHOT_SHOUT);

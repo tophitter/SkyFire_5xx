@@ -16,14 +16,17 @@ It is completely open source; community involvement is highly encouraged.
 
 If you wish to contribute ideas or code please visit our site linked below or
 make pull requests to our 
-[Github repository](https://github.com/ProjectSkyfire/SkyFireEMU).
+[Github repository](https://github.com/ProjectSkyfire/SkyFire_5xx).
 
 For further information on the SkyFire project, please visit our project website at 
 [projectskyfire.org](http://www.projectskyfire.org).
 
+Connection patcher requiered.
+[SkyFire-Community-Tools] (https://github.com/ProjectSkyfire/SkyFire-Community-Tools).
+
 ## Status
 
-[Build status](https://travis-ci.org/ProjectSkyfire/SkyFireEMU/builds)
+[Build status](https://travis-ci.org/ProjectSkyfire/SkyFire_5xx/builds)
 
 ## Requirements
 
@@ -31,10 +34,10 @@ For further information on the SkyFire project, please visit our project website
 + Processor with SSE2 support
 + ACE = 5.8.3 (included for Windows)
 + MySQL = 5.1.0 (included for Windows)
-+ CMake = 2.8.0
++ CMake = 2.8.11.2 / 2.8.9 (Windows / Linux)
 + OpenSSL = 0.9.8o
-+ GCC = 4.3 (Linux only)
-+ MS Visual Studio = 9 (2008) (Windows only)
++ GCC = 4.7.2 (Linux only)
++ MS Visual Studio = 12 (2013) (Windows only)
 
 
 ## Install
@@ -48,10 +51,7 @@ Detailed installation guides are available in the wiki for
 
 ## Reporting issues
 
-Issues can be reported via the [Github issue tracker](https://github.com/ProjectSkyfire/SkyFireEMU/issues).
-
-Please take the time to review existing issues before submitting your own to
-prevent duplicates.
+Do not report issues on this repo untill it is stable.
 
 ## Submitting fixes
 
@@ -66,8 +66,11 @@ Read file [COPYING](COPYING.md)
 
 ## Authors &amp; Contributors
 
-Read file [THANKS](https://github.com/ProjectSkyfire/SkyFireEMU/tree/master/doc/THANKS.md)
+Read file [THANKS](THANKS.md)
 
+## To-Do List
+
+Read File [TO-DO] (TODO.md)
 
 ## Links
 

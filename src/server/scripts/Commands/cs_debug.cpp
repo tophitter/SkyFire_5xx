@@ -484,7 +484,7 @@ public:
         char const* msg = "testtest";
         uint8 type = atoi(args);
         WorldPacket data;
-        ChatHandler::FillMessageData(&data, handler->GetSession(), type, 0, "chan", handler->GetSession()->GetPlayer()->GetGUID(), msg, handler->GetSession()->GetPlayer());
+        ChatHandler::BuildChatPacket(data, ChatMsg(type), LANG_UNIVERSAL, handler->GetSession()->GetPlayer(), handler->GetSession()->GetPlayer(), msg, 0, "chan");
         handler->GetSession()->SendPacket(&data);
         return true;
     }
@@ -964,13 +964,14 @@ public:
 
         std::set<uint32> terrainswap;
         std::set<uint32> phaseId;
+        std::set<uint32> worldMapArea;
 
         terrainswap.insert((uint32)atoi(t));
 
         if (p)
             phaseId.insert((uint32)atoi(p));
 
-        handler->GetSession()->SendSetPhaseShift(phaseId, terrainswap);
+        handler->GetSession()->SendSetPhaseShift(phaseId, terrainswap, worldMapArea);
         return true;
     }
 

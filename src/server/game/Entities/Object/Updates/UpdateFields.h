@@ -20,7 +20,7 @@
 #ifndef _UPDATEFIELDS_H
 #define _UPDATEFIELDS_H
 
-// Auto generated for version 5, 4, 1, 17538
+// Auto generated for version 5.4.7 18019
 
 enum EObjectFields
 {
@@ -51,6 +51,12 @@ enum EItemFields
     ITEM_FIELD_CREATE_PLAYED_TIME                            = OBJECT_END + 0x3B, // Size: 1, Flags: UF_FLAG_PUBLIC
     ITEM_FIELD_MODIFIERS_MASK                                = OBJECT_END + 0x3C, // Size: 1, Flags: UF_FLAG_OWNER
     ITEM_END                                                 = OBJECT_END + 0x3D,
+};
+
+enum ItemDynamicFields
+{
+    ITEM_DYNAMIC_MODIFIERS = 0x0,
+    ITEM_DYNAMIC_END = 0x1
 };
 
 enum EContainerFields
@@ -112,8 +118,8 @@ enum EUnitFields
     UNIT_FIELD_MOD_RANGED_HASTE                              = OBJECT_END + 0x4C, // Size: 1, Flags: UF_FLAG_PUBLIC
     UNIT_FIELD_MOD_HASTE_REGEN                               = OBJECT_END + 0x4D, // Size: 1, Flags: UF_FLAG_PUBLIC
     UNIT_FIELD_CREATED_BY_SPELL                              = OBJECT_END + 0x4E, // Size: 1, Flags: UF_FLAG_PUBLIC
-    UNIT_FIELD_NPC_FLAGS                                     = OBJECT_END + 0x4F, // Size: 1, Flags: UF_FLAG_PUBLIC, UF_FLAG_VIEWER_DEPENDENT
-    UNIT_FIELD_NPC_EMOTESTATE                                = OBJECT_END + 0x50, // Size: 2, Flags: UF_FLAG_PUBLIC
+    UNIT_FIELD_NPC_FLAGS                                     = OBJECT_END + 0x4F, // Size: 2, Flags: UF_FLAG_PUBLIC, UF_FLAG_VIEWER_DEPENDENT
+    UNIT_FIELD_NPC_EMOTESTATE                                = OBJECT_END + 0x51, // Size: 1, Flags: UF_FLAG_PUBLIC
     UNIT_FIELD_STATS                                         = OBJECT_END + 0x52, // Size: 5, Flags: UF_FLAG_PRIVATE, UF_FLAG_OWNER
     UNIT_FIELD_STAT_POS_BUFF                                 = OBJECT_END + 0x57, // Size: 5, Flags: UF_FLAG_PRIVATE, UF_FLAG_OWNER
     UNIT_FIELD_STAT_NEG_BUFF                                 = OBJECT_END + 0x5C, // Size: 5, Flags: UF_FLAG_PRIVATE, UF_FLAG_OWNER
@@ -267,7 +273,7 @@ enum EGameObjectFields
 
 enum EDynamicObjectFields
 {
-    DYNAMICOBJECT_FIELD_CASTER                               = OBJECT_END + 0x0, // Size: 2, Flags: UF_FLAGý_PUBLIC
+    DYNAMICOBJECT_FIELD_CASTER                               = OBJECT_END + 0x0, // Size: 2, Flags: UF_FLAG_PUBLIC
     DYNAMICOBJECT_FIELD_TYPE_AND_VISUAL_ID                   = OBJECT_END + 0x2, // Size: 1, Flags: UF_FLAG_VIEWER_DEPENDENT
     DYNAMICOBJECT_FIELD_SPELL_ID                             = OBJECT_END + 0x3, // Size: 1, Flags: UF_FLAG_PUBLIC
     DYNAMICOBJECT_FIELD_RADIUS                               = OBJECT_END + 0x4, // Size: 1, Flags: UF_FLAG_PUBLIC

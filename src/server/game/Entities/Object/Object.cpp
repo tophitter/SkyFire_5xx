@@ -52,6 +52,7 @@
 #include "Group.h"
 #include "Battlefield.h"
 #include "BattlefieldMgr.h"
+#include "Chat.h"
 
 uint32 GuidHigh2TypeId(uint32 guid_hi)
 {
@@ -122,6 +123,12 @@ Object::~Object()
 
     delete [] m_uint32Values;
     m_uint32Values = 0;
+
+    for (size_t i = 0; i < m_dynamicTab.size(); ++i)
+    {
+        delete[] m_dynamicTab[i];
+        delete[] m_dynamicChange[i];
+    }
 }
 
 void Object::_InitValues()
@@ -130,6 +137,12 @@ void Object::_InitValues()
     memset(m_uint32Values, 0, m_valuesCount*sizeof(uint32));
 
     _changesMask.SetCount(m_valuesCount);
+
+    for (size_t i = 0; i < m_dynamicTab.size(); ++i)
+    {
+        memset(m_dynamicTab[i], 0, 32 * sizeof(uint32));
+        memset(m_dynamicChange[i], 0, 32 * sizeof(bool));
+    }
 
     m_objectUpdated = false;
 }
@@ -298,29 +311,29 @@ void Object::DestroyForPlayer(Player* target, bool onDeath) const
     WorldPacket data(SMSG_DESTROY_OBJECT, 2 + 8);
     ObjectGuid guid(GetGUID());
 
-    data.WriteBit(guid[5]);
-    data.WriteBit(guid[6]);
-    data.WriteBit(guid[1]);
-    data.WriteBit(guid[7]);
-    data.WriteBit(guid[2]);
-    data.WriteBit(guid[0]);
     data.WriteBit(guid[3]);
+    data.WriteBit(guid[2]);
+    data.WriteBit(guid[4]);
+    data.WriteBit(guid[1]);
 
     //! If the following bool is true, the client will call "void CGUnit_C::OnDeath()" for this object.
     //! OnDeath() does for eg trigger death animation and interrupts certain spells/missiles/auras/sounds...
     data.WriteBit(onDeath);
 
-    data.WriteBit(guid[4]);
+    data.WriteBit(guid[7]);
+    data.WriteBit(guid[0]);
+    data.WriteBit(guid[6]);
+    data.WriteBit(guid[5]);
     data.FlushBits();
 
-    data.WriteByteSeq(guid[1]);
-    data.WriteByteSeq(guid[5]);
-    data.WriteByteSeq(guid[3]);
     data.WriteByteSeq(guid[0]);
+    data.WriteByteSeq(guid[4]);
+    data.WriteByteSeq(guid[7]);
     data.WriteByteSeq(guid[2]);
     data.WriteByteSeq(guid[6]);
-    data.WriteByteSeq(guid[7]);
-    data.WriteByteSeq(guid[4]);
+    data.WriteByteSeq(guid[3]);
+    data.WriteByteSeq(guid[1]);
+    data.WriteByteSeq(guid[5]);
 
     target->GetSession()->SendPacket(&data);
 }
@@ -363,483 +376,355 @@ uint16 Object::GetUInt16Value(uint16 index, uint8 offset) const
     return *(((uint16*)&m_uint32Values[index])+offset);
 }
 
+uint32 Object::GetDynamicUInt32Value(uint32 tab, uint16 index) const
+{
+    ASSERT(tab < m_dynamicTab.size() || index < 32);
+    return m_dynamicTab[tab][index];
+}
+
 void Object::BuildMovementUpdate(ByteBuffer* data, uint16 flags) const
 {
-   bool IsAreaTrigger = false;
-    bool IsSceneObject = false;
-    
+    bool hasLiving = flags & UPDATEFLAG_LIVING;
+    bool hasStacionaryPostion = flags & UPDATEFLAG_STATIONARY_POSITION;
+    bool hasGobjectRotation = flags & UPDATEFLAG_ROTATION;
+    bool hasTransportPosition = flags & UPDATEFLAG_GO_TRANSPORT_POSITION;
+    bool hasTarget = flags & UPDATEFLAG_HAS_TARGET;
+    bool hasTransport = flags & UPDATEFLAG_TRANSPORT;
+    bool hasVehicle = false; //flags & UPDATEFLAG_VEHICLE;
+    bool hasAnimKits = false; //flags & UPDATEFLAG_ANIMKITS;
 
-    data->WriteBit(flags & UPDATEFLAG_VEHICLE);
-    data->WriteBit(flags & UPDATEFLAG_SELF);
+    bool hasFallData;
+    bool hasFallDirection;
+    bool hasSpline;
+    bool hasPitch;
+    bool hasSplineElevation;
+    bool hasUnitTransport;
+
+    uint32 movementFlags;
+    uint32 movementFlagsExtra;
+
     data->WriteBit(0);
-    data->WriteBit(flags & UPDATEFLAG_TRANSPORT);
-	data->WriteBit(0);
-    data->WriteBit(0);
-    data->WriteBit(flags & UPDATEFLAG_HAS_TARGET);
-    data->WriteBit(flags & UPDATEFLAG_STATIONARY_POSITION);
-    data->WriteBit(IsAreaTrigger);
-    data->WriteBit(0);
-    data->WriteBit(IsSceneObject);
+    data->WriteBit(hasAnimKits);
+    data->WriteBit(hasLiving);
     data->WriteBit(0);
     data->WriteBit(0);
     data->WriteBits(0, 22);
-    data->WriteBit(flags & UPDATEFLAG_LIVING);
-    data->WriteBit(flags & UPDATEFLAG_GO_TRANSPORT_POSITION);
-    data->WriteBit(0);
-    data->WriteBit(flags & UPDATEFLAG_ROTATION);
+    data->WriteBit(hasVehicle);
     data->WriteBit(0);
     data->WriteBit(0);
-    data->WriteBit(flags & UPDATEFLAG_ANIMKITS);
-
-    if (flags & UPDATEFLAG_LIVING)
-    {
-        Unit const* self = ToUnit();
-        ObjectGuid guid = GetGUID();
-
-        data->WriteBit(guid[5]);
-        data->WriteBit(0);
-        data->WriteBit(1);
-        data->WriteBit(guid[6]);
-        data->WriteBit(0);
-        data->WriteBits(0, 19);
-        data->WriteBit(guid[4]);
-        data->WriteBit(G3D::fuzzyEq(self->GetOrientation(), 0.0f)); //!G3D::fuzzyEq(self->GetOrientation(), 0.0f)
-        data->WriteBit(1);
-        data->WriteBit(1);
-        data->WriteBit(guid[2]);
-        data->WriteBit(guid[3]);
-        data->WriteBit(guid[7]);
-        data->WriteBits(0, 22);
-        data->WriteBit(1);
-        data->WriteBit(0);
-        data->WriteBit(1);
-        data->WriteBit(guid[1]);
-        data->WriteBit(0);
-        data->WriteBit(0);
-        data->WriteBit(guid[0]);
-        data->WriteBit(0);
-        data->WriteBit(flags & UPDATEFLAG_TRANSPORT);
-    }
-    
-    if (flags & UPDATEFLAG_GO_TRANSPORT_POSITION)
-    {
-        WorldObject const* self = static_cast<WorldObject const*>(this);
-        ObjectGuid transGuid = self->m_movementInfo.transport.guid;
-        data->WriteBit(self->m_movementInfo.transport.time3 && self->m_movementInfo.transport.guid); // Has GO transport time 3
-        data->WriteBit(self->m_movementInfo.transport.time2 && self->m_movementInfo.transport.guid); // Has GO transport time 2
-
-        data->WriteBit(transGuid[4]);
-        data->WriteBit(transGuid[2]);
-        data->WriteBit(transGuid[7]);
-        data->WriteBit(transGuid[6]);
-        data->WriteBit(transGuid[3]);
-        data->WriteBit(transGuid[0]);
-        data->WriteBit(transGuid[1]);
-        data->WriteBit(transGuid[5]);
-    }
-
-    data->FlushBits();
-
-    if (flags & UPDATEFLAG_LIVING)
-    {
-        Unit const* self = ToUnit();
-        ObjectGuid guid = GetGUID();
-        uint32 movementFlags = self->m_movementInfo.GetMovementFlags();
-        uint16 movementFlagsExtra = self->m_movementInfo.GetExtraMovementFlags();
-        if (GetTypeId() == TYPEID_UNIT)
-            movementFlags &= MOVEMENTFLAG_MASK_CREATURE_ALLOWED;
-
-        *data << float(self->GetPositionY());
-        data->WriteByteSeq(guid[7]);
-        data->WriteByteSeq(guid[1]);
-        *data << self->GetSpeed(MOVE_TURN_RATE);
-        *data << self->GetSpeed(MOVE_FLIGHT_BACK);
-        *data << self->GetSpeed(MOVE_RUN_BACK);
-        *data << uint32(0);
-        *data << float(self->GetPositionX());
-        data->WriteByteSeq(guid[2]);
-        *data << self->GetSpeed(MOVE_SWIM);
-        *data << self->GetSpeed(MOVE_SWIM_BACK);
-
-        if (!G3D::fuzzyEq(self->GetOrientation(), 0.0f))
-            *data << float(Position::NormalizeOrientation(self->GetOrientation()));
-
-        *data << self->GetSpeed(MOVE_FLIGHT);
-        data->WriteByteSeq(guid[6]);
-        *data << self->GetSpeed(MOVE_RUN);
-        *data << self->GetSpeed(MOVE_PITCH_RATE);
-        data->WriteByteSeq(guid[0]);
-        data->WriteByteSeq(guid[5]);
-        data->WriteByteSeq(guid[4]);
-        *data << self->GetSpeed(MOVE_WALK);
-        *data << float(self->GetPositionZMinusOffset());
-        data->WriteByteSeq(guid[3]);
-    }
-
-    if (flags & UPDATEFLAG_STATIONARY_POSITION)
-    {
-        WorldObject const* self = static_cast<WorldObject const*>(this);
-        *data << float(self->GetPositionX());
-        if (Unit const* unit = ToUnit())
-            *data << float(unit->GetPositionZMinusOffset());
-        else
-            *data << float(self->GetPositionZ());
-        *data << float(self->GetPositionY());
-        *data << float(Position::NormalizeOrientation(self->GetOrientation()));
-    }
-
-    if (flags & UPDATEFLAG_GO_TRANSPORT_POSITION)
-    {
-        WorldObject const* self = static_cast<WorldObject const*>(this);
-        ObjectGuid transGuid = self->m_movementInfo.transport.guid;
-        
-        *data << int8(self->GetTransSeat());
-
-        if (self->m_movementInfo.transport.time2 && self->m_movementInfo.transport.guid)
-            *data << uint32(self->m_movementInfo.transport.time2);
-
-        data->WriteBit(transGuid[4]);
-        data->WriteBit(transGuid[3]);
-
-        if (self->m_movementInfo.transport.time3 && self->m_movementInfo.transport.guid)
-            *data << uint32(self->m_movementInfo.transport.time3);
-
-        data->WriteBit(transGuid[7]);
-        data->WriteBit(transGuid[6]);
-        data->WriteBit(transGuid[5]);
-        data->WriteBit(transGuid[0]);
-
-        *data << float(self->GetTransOffsetZ());
-        *data << float(self->GetTransOffsetX());
-        *data << uint32(self->GetTransTime());
-        *data << float(self->GetTransOffsetO());
-
-        data->WriteBit(transGuid[1]);
-
-        *data << float(self->GetTransOffsetY());
-
-        data->WriteBit(transGuid[2]);
-    }
-
-    if (flags & UPDATEFLAG_ROTATION)
-        *data << uint64(ToGameObject()->GetRotation());
-
-/*
-    Unit const* self = NULL;
-    ObjectGuid guid = GetGUID();
-    uint32 movementFlags = 0;
-    uint16 movementFlagsExtra = 0;
-
-    bool hasTransportTime2 = false;
-    bool hasTransportTime3 = false;
-    bool hasFallDirection = false;
-    bool hasFallData = false;
-    bool hasPitch = false;
-    bool hasSpline = false;
-    bool hasSplineElevation = false;
-
-    uint32 unkLoopCounter = 0;
-    // Bit content
+    data->WriteBit(hasTransport);
+    data->WriteBit(hasGobjectRotation);
     data->WriteBit(0);
-    data->WriteBit(0);
-    data->WriteBit(flags & UPDATEFLAG_ROTATION);
-    data->WriteBit(flags & UPDATEFLAG_ANIMKITS);
-    data->WriteBit(flags & UPDATEFLAG_HAS_TARGET);
     data->WriteBit(flags & UPDATEFLAG_SELF);
-    data->WriteBit(flags & UPDATEFLAG_VEHICLE);
-    data->WriteBit(flags & UPDATEFLAG_LIVING);
-    data->WriteBits(unkLoopCounter, 24);
+    data->WriteBit(hasTarget);
     data->WriteBit(0);
-    data->WriteBit(flags & UPDATEFLAG_GO_TRANSPORT_POSITION);
-    data->WriteBit(flags & UPDATEFLAG_STATIONARY_POSITION);
-    data->WriteBit(flags & UPDATEFLAG_UNK5);
     data->WriteBit(0);
-    data->WriteBit(flags & UPDATEFLAG_TRANSPORT);
+    data->WriteBit(0);
+    data->WriteBit(0);
+    data->WriteBit(hasTransportPosition);
+    data->WriteBit(0);
+    data->WriteBit(hasStacionaryPostion);
 
-    if (flags & UPDATEFLAG_LIVING)
+    if (hasLiving)
     {
-        self = ToUnit();
-        movementFlags = self->m_movementInfo.GetMovementFlags();
-        movementFlagsExtra = self->m_movementInfo.GetExtraMovementFlags();
-        hasSpline = self->IsSplineEnabled();
+        Unit const* self = ToUnit();
+        ObjectGuid guid = GetGUID();
 
-        hasTransportTime2 = self->m_movementInfo.transport.guid != 0 && self->m_movementInfo.transport.time2 != 0;
-        hasTransportTime3 = false;
-        hasPitch = self->HasUnitMovementFlag(MovementFlags(MOVEMENTFLAG_SWIMMING | MOVEMENTFLAG_FLYING)) || self->HasExtraUnitMovementFlag(MOVEMENTFLAG2_ALWAYS_ALLOW_PITCHING);
         hasFallDirection = self->HasUnitMovementFlag(MOVEMENTFLAG_FALLING);
         hasFallData = hasFallDirection || self->m_movementInfo.jump.fallTime != 0;
+        movementFlags = self->GetUnitMovementFlags();
+        movementFlagsExtra = self->GetExtraUnitMovementFlags();
+        hasSpline = self->IsSplineEnabled() && self->GetTypeId() != TYPEID_PLAYER;
+        hasPitch = self->HasUnitMovementFlag(MovementFlags(MOVEMENTFLAG_SWIMMING | MOVEMENTFLAG_FLYING)) || self->HasExtraUnitMovementFlag(MOVEMENTFLAG2_ALWAYS_ALLOW_PITCHING);
         hasSplineElevation = self->HasUnitMovementFlag(MOVEMENTFLAG_SPLINE_ELEVATION);
+        hasUnitTransport = self->m_movementInfo.transport.guid;
 
         if (GetTypeId() == TYPEID_UNIT)
             movementFlags &= MOVEMENTFLAG_MASK_CREATURE_ALLOWED;
 
-        data->WriteBit(!movementFlags);
-        data->WriteBit(G3D::fuzzyEq(self->GetOrientation(), 0.0f));             // Has Orientation
-        data->WriteBit(guid[7]);
-        data->WriteBit(guid[3]);
         data->WriteBit(guid[2]);
+        data->WriteBit(0);
+        data->WriteBit(!hasPitch);
+        data->WriteBit(hasUnitTransport);
+        data->WriteBit(0);
+
+        if (hasUnitTransport)
+        {
+            ObjectGuid transGuid = self->m_movementInfo.transport.guid;
+            data->WriteBit(transGuid[4]);
+            data->WriteBit(transGuid[2]);
+            data->WriteBit(self->m_movementInfo.transport.time3 && self->m_movementInfo.transport.guid);
+            data->WriteBit(transGuid[0]);
+            data->WriteBit(transGuid[1]);
+            data->WriteBit(transGuid[3]);
+            data->WriteBit(transGuid[6]);
+            data->WriteBit(transGuid[7]);
+            data->WriteBit(self->m_movementInfo.transport.time2 && self->m_movementInfo.transport.guid);
+            data->WriteBit(transGuid[5]);
+        }
+
+        data->WriteBit(!self->m_movementInfo.time);
+        data->WriteBit(guid[6]);
+        data->WriteBit(guid[4]);
+        data->WriteBit(guid[3]);
+
+        data->WriteBit(G3D::fuzzyEq(self->GetOrientation(), 0.0f)); //!G3D::fuzzyEq(self->GetOrientation(), 0.0f)
+
+        data->WriteBit(!self->GetMovementCounter());
+        data->WriteBit(guid[5]);
+        data->WriteBits(0, 22); // Forces
+        data->WriteBit(!movementFlags);
+        data->WriteBits(0, 19);
+        data->WriteBit(hasFallData);
+
         if (movementFlags)
             data->WriteBits(movementFlags, 30);
 
-        data->WriteBit(hasSpline && GetTypeId() == TYPEID_PLAYER);              // Has spline (from MovementInfo)
-        data->WriteBit(!hasPitch);                                              // Has pitch
-        data->WriteBit(hasSpline);                                              // Has spline data (independent)
-        data->WriteBit(hasFallData);                                            // Has fall data
-        data->WriteBit(!hasSplineElevation);                                    // Has spline elevation
-        data->WriteBit(guid[5]);
-        data->WriteBit(self->m_movementInfo.transport.guid);                    // Has transport data
-        data->WriteBit(0);                                                      // Is missing time
-
-        if (self->m_movementInfo.transport.guid)
-        {
-            ObjectGuid transGuid = self->m_movementInfo.transport.guid;
-
-            data->WriteBit(transGuid[1]);
-            data->WriteBit(hasTransportTime2);                                  // Has transport time 2
-            data->WriteBit(transGuid[4]);
-            data->WriteBit(transGuid[0]);
-            data->WriteBit(transGuid[6]);
-            data->WriteBit(hasTransportTime3);                                  // Has transport time 3
-            data->WriteBit(transGuid[7]);
-            data->WriteBit(transGuid[5]);
-            data->WriteBit(transGuid[3]);
-            data->WriteBit(transGuid[2]);
-        }
-
-        data->WriteBit(guid[4]);
+        data->WriteBit(!hasSplineElevation);
+        data->WriteBit(hasSpline);
+        data->WriteBit(0);
+        data->WriteBit(guid[0]);
+        data->WriteBit(guid[7]);
+        data->WriteBit(guid[1]);
 
         if (hasSpline)
             Movement::PacketBuilder::WriteCreateBits(*self->movespline, *data);
 
-        data->WriteBit(guid[6]);
+        data->WriteBit(!movementFlagsExtra);
+
         if (hasFallData)
             data->WriteBit(hasFallDirection);
 
-        data->WriteBit(guid[0]);
-        data->WriteBit(guid[1]);
-        data->WriteBit(0);
-        data->WriteBit(!movementFlagsExtra);
         if (movementFlagsExtra)
-            data->WriteBits(movementFlagsExtra, 12);
+           data->WriteBits(movementFlagsExtra, 13);
     }
 
-    if (flags & UPDATEFLAG_GO_TRANSPORT_POSITION)
+    if (hasTransportPosition)
     {
         WorldObject const* self = static_cast<WorldObject const*>(this);
         ObjectGuid transGuid = self->m_movementInfo.transport.guid;
-        data->WriteBit(transGuid[5]);
-        data->WriteBit(0);                                                      // Has GO transport time 3
-        data->WriteBit(transGuid[0]);
-        data->WriteBit(transGuid[3]);
-        data->WriteBit(transGuid[6]);
-        data->WriteBit(transGuid[1]);
         data->WriteBit(transGuid[4]);
+        data->WriteBit(transGuid[1]);
+        data->WriteBit(transGuid[0]);
+        data->WriteBit(self->m_movementInfo.transport.time2 && self->m_movementInfo.transport.guid);
+        data->WriteBit(transGuid[6]);
+        data->WriteBit(transGuid[5]);
+        data->WriteBit(transGuid[3]);
         data->WriteBit(transGuid[2]);
-        data->WriteBit(0);                                                      // Has GO transport time 2
         data->WriteBit(transGuid[7]);
+        data->WriteBit(self->m_movementInfo.transport.time3 && self->m_movementInfo.transport.guid);
     }
 
-    if (flags & UPDATEFLAG_HAS_TARGET)
+    /*
+    if (hasAnimKits)
     {
-        ObjectGuid victimGuid = self->GetVictim()->GetGUID();   // checked in BuildCreateUpdateBlockForPlayer
-        data->WriteBit(victimGuid[2]);
-        data->WriteBit(victimGuid[7]);
-        data->WriteBit(victimGuid[0]);
+        data->WriteBit(1);  // Missing AnimKit1
+        data->WriteBit(1);  // Missing AnimKit2
+        data->WriteBit(1);  // Missing AnimKit3
+    }
+    */
+
+    if (hasTarget)
+    {
+        Unit const* self = ToUnit();
+        ObjectGuid victimGuid = self->GetVictim()->GetGUID();
         data->WriteBit(victimGuid[4]);
-        data->WriteBit(victimGuid[5]);
         data->WriteBit(victimGuid[6]);
+        data->WriteBit(victimGuid[5]);
+        data->WriteBit(victimGuid[2]);
+        data->WriteBit(victimGuid[0]);
         data->WriteBit(victimGuid[1]);
         data->WriteBit(victimGuid[3]);
-    }
-
-    if (flags & UPDATEFLAG_ANIMKITS)
-    {
-        data->WriteBit(1);                                                      // Missing AnimKit1
-        data->WriteBit(1);                                                      // Missing AnimKit2
-        data->WriteBit(1);                                                      // Missing AnimKit3
+        data->WriteBit(victimGuid[7]);
     }
 
     data->FlushBits();
 
-    // Data
-    for (uint32 i = 0; i < unkLoopCounter; ++i)
-        *data << uint32(0);
-
-    if (flags & UPDATEFLAG_LIVING)
+    if (hasLiving)
     {
+        Unit const* self = ToUnit();
+        ObjectGuid guid = GetGUID();
+
+        if (hasUnitTransport)
+        {
+            ObjectGuid transGuid = self->m_movementInfo.transport.guid;
+
+            data->WriteByteSeq(transGuid[7]);
+            *data << float(self->GetTransOffsetX());
+
+            if (self->m_movementInfo.transport.time3 && self->m_movementInfo.transport.guid)
+                *data << uint32(self->m_movementInfo.transport.time3);
+
+            *data << float(self->GetTransOffsetO());
+            *data << float(self->GetTransOffsetY());
+            data->WriteByteSeq(transGuid[4]);
+            data->WriteByteSeq(transGuid[1]);
+            data->WriteByteSeq(transGuid[3]);
+            *data << float(self->GetTransOffsetZ());
+            data->WriteByteSeq(transGuid[5]);
+
+            if (self->m_movementInfo.transport.time2 && self->m_movementInfo.transport.guid)
+                *data << uint32(self->m_movementInfo.transport.time2);
+
+            data->WriteByteSeq(transGuid[0]);
+            *data << int8(self->GetTransSeat());
+            data->WriteByteSeq(transGuid[6]);
+            data->WriteByteSeq(transGuid[2]);
+            *data << uint32(self->GetTransTime());
+        }
+
         data->WriteByteSeq(guid[4]);
-        *data << self->GetSpeed(MOVE_RUN_BACK);
+
+        if (hasSpline)
+            Movement::PacketBuilder::WriteCreateData(*self->movespline, *data);
+
+        *data << float(self->GetSpeed(MOVE_FLIGHT));
+
+        if (self->GetMovementCounter())
+            *data << uint32(self->GetMovementCounter());
+
+        data->WriteByteSeq(guid[2]);
 
         if (hasFallData)
         {
             if (hasFallDirection)
             {
                 *data << float(self->m_movementInfo.jump.xyspeed);
-                *data << float(self->m_movementInfo.jump.sinAngle);
                 *data << float(self->m_movementInfo.jump.cosAngle);
+                *data << float(self->m_movementInfo.jump.sinAngle);
             }
 
             *data << uint32(self->m_movementInfo.jump.fallTime);
             *data << float(self->m_movementInfo.jump.zspeed);
         }
 
-        *data << self->GetSpeed(MOVE_SWIM_BACK);
+        data->WriteByteSeq(guid[1]);
+        *data << float(self->GetSpeed(MOVE_TURN_RATE));
+
+        if (self->m_movementInfo.time)
+            *data << uint32(self->m_movementInfo.time);
+
+        *data << float(self->GetSpeed(MOVE_RUN_BACK));
+
         if (hasSplineElevation)
             *data << float(self->m_movementInfo.splineElevation);
 
-        if (hasSpline)
-            Movement::PacketBuilder::WriteCreateData(*self->movespline, *data);
-
-        *data << float(self->GetPositionZMinusOffset());
-        data->WriteByteSeq(guid[5]);
-
-        if (self->m_movementInfo.transport.guid)
-        {
-            ObjectGuid transGuid = self->m_movementInfo.transport.guid;
-
-            data->WriteByteSeq(transGuid[5]);
-            data->WriteByteSeq(transGuid[7]);
-            *data << uint32(self->GetTransTime());
-            *data << float(self->GetTransOffsetO());
-            if (hasTransportTime2)
-                *data << uint32(self->m_movementInfo.transport.time2);
-
-            *data << float(self->GetTransOffsetY());
-            *data << float(self->GetTransOffsetX());
-            data->WriteByteSeq(transGuid[3]);
-            *data << float(self->GetTransOffsetZ());
-            data->WriteByteSeq(transGuid[0]);
-            if (hasTransportTime3)
-                *data << uint32(self->m_movementInfo.transport.time3);
-
-            *data << int8(self->GetTransSeat());
-            data->WriteByteSeq(transGuid[1]);
-            data->WriteByteSeq(transGuid[6]);
-            data->WriteByteSeq(transGuid[2]);
-            data->WriteByteSeq(transGuid[4]);
-        }
-
-        *data << float(self->GetPositionX());
-        *data << self->GetSpeed(MOVE_PITCH_RATE);
-        data->WriteByteSeq(guid[3]);
-        data->WriteByteSeq(guid[0]);
-        *data << self->GetSpeed(MOVE_SWIM);
-        *data << float(self->GetPositionY());
         data->WriteByteSeq(guid[7]);
-        data->WriteByteSeq(guid[1]);
-        data->WriteByteSeq(guid[2]);
-        *data << self->GetSpeed(MOVE_WALK);
+        *data << float(self->GetSpeed(MOVE_PITCH_RATE));
+        *data << float(self->GetPositionX());
 
-        //if (true)   // Has time, controlled by bit just after HasTransport
-        *data << uint32(getMSTime());
-
-        *data << self->GetSpeed(MOVE_FLIGHT_BACK);
-        data->WriteByteSeq(guid[6]);
-        *data << self->GetSpeed(MOVE_TURN_RATE);
-        if (!G3D::fuzzyEq(self->GetOrientation(), 0.0f))
-            *data << float(self->GetOrientation());
-
-        *data << self->GetSpeed(MOVE_RUN);
         if (hasPitch)
             *data << float(self->m_movementInfo.pitch);
 
-        *data << self->GetSpeed(MOVE_FLIGHT);
+        if (!G3D::fuzzyEq(self->GetOrientation(), 0.0f))
+            *data << float(Position::NormalizeOrientation(self->GetOrientation()));
+
+        *data << float(self->GetSpeed(MOVE_WALK));
+        *data << float(self->GetPositionY());
+        *data << float(self->GetSpeed(MOVE_FLIGHT_BACK));
+        data->WriteByteSeq(guid[3]);
+        data->WriteByteSeq(guid[5]);
+        data->WriteByteSeq(guid[6]);
+        data->WriteByteSeq(guid[0]);
+        *data << float(self->GetSpeed(MOVE_SWIM_BACK));
+        *data << float(self->GetSpeed(MOVE_RUN));
+        *data << float(self->GetSpeed(MOVE_SWIM));
+        *data << float(self->GetPositionZMinusOffset());
+
     }
 
-    if (flags & UPDATEFLAG_VEHICLE)
-    {
-        *data << float(self->GetOrientation());
-        *data << uint32(self->GetVehicleKit()->GetVehicleInfo()->m_ID);
-    }
-
-    if (flags & UPDATEFLAG_GO_TRANSPORT_POSITION)
+    if (hasTransportPosition)
     {
         WorldObject const* self = static_cast<WorldObject const*>(this);
         ObjectGuid transGuid = self->m_movementInfo.transport.guid;
 
-        data->WriteBit(transGuid[0]);
-        data->WriteBit(transGuid[5]);
-        if (hasTransportTime3)
+        if (self->m_movementInfo.transport.time2 && self->m_movementInfo.transport.guid)
+            *data << uint32(self->m_movementInfo.transport.time2);
+
+        *data << float(self->GetTransOffsetY());
+        *data << int8(self->GetTransSeat());
+        *data << float(self->GetTransOffsetX());
+        data->WriteBit(transGuid[2]);
+        data->WriteBit(transGuid[4]);
+        data->WriteBit(transGuid[1]);
+
+        if (self->m_movementInfo.transport.time3 && self->m_movementInfo.transport.guid)
             *data << uint32(self->m_movementInfo.transport.time3);
 
-        data->WriteBit(transGuid[3]);
-        *data << float(self->GetTransOffsetX());
-        data->WriteBit(transGuid[4]);
-        data->WriteBit(transGuid[6]);
-        data->WriteBit(transGuid[1]);
         *data << uint32(self->GetTransTime());
-        *data << float(self->GetTransOffsetY());
-        data->WriteBit(transGuid[2]);
-        data->WriteBit(transGuid[7]);
-        *data << float(self->GetTransOffsetZ());
-        *data << int8(self->GetTransSeat());
+
         *data << float(self->GetTransOffsetO());
-        if (hasTransportTime2)
-            *data << uint32(self->m_movementInfo.transport.time2);
+        *data << float(self->GetTransOffsetZ());
+
+        data->WriteBit(transGuid[6]);
+        data->WriteBit(transGuid[0]);
+        data->WriteBit(transGuid[5]);
+        data->WriteBit(transGuid[3]);
+        data->WriteBit(transGuid[7]);
     }
 
-    if (flags & UPDATEFLAG_UNK5)
+    if (hasTarget)
     {
-        *data << float(0.0f);
-        *data << float(0.0f);
-        *data << float(0.0f);
-        *data << float(0.0f);
-        *data << uint8(0);
-        *data << float(0.0f);
-        *data << float(0.0f);
-        *data << float(0.0f);
-        *data << float(0.0f);
-        *data << float(0.0f);
-        *data << float(0.0f);
-        *data << float(0.0f);
-        *data << float(0.0f);
-        *data << float(0.0f);
-        *data << float(0.0f);
-        *data << float(0.0f);
-        *data << float(0.0f);
+        Unit const* self = ToUnit();
+        ObjectGuid victimGuid = self->GetVictim()->GetGUID();
+        data->WriteByteSeq(victimGuid[7]);
+        data->WriteByteSeq(victimGuid[1]);
+        data->WriteByteSeq(victimGuid[5]);
+        data->WriteByteSeq(victimGuid[2]);
+        data->WriteByteSeq(victimGuid[6]);
+        data->WriteByteSeq(victimGuid[3]);
+        data->WriteByteSeq(victimGuid[0]);
+        data->WriteByteSeq(victimGuid[4]);
     }
 
-    if (flags & UPDATEFLAG_STATIONARY_POSITION)
+    /*
+    if (hasVehicle)
+    {
+        Unit const* self = ToUnit();
+        *data << uint32(self->GetVehicleKit()->GetVehicleInfo()->m_ID);
+        *data << float(self->GetOrientation());
+    }
+    */
+
+
+    if (hasStacionaryPostion)
     {
         WorldObject const* self = static_cast<WorldObject const*>(this);
-        *data << float(self->GetStationaryO());
-        *data << float(self->GetStationaryX());
-        *data << float(self->GetStationaryY());
-        *data << float(self->GetStationaryZ());
+        *data << float(self->GetPositionY());
+        if (Unit const* unit = ToUnit())
+            *data << float(unit->GetPositionZMinusOffset());
+        else
+            *data << float(self->GetPositionZ());
+        *data << float(Position::NormalizeOrientation(self->GetOrientation()));
+        *data << float(self->GetPositionX());
     }
 
-    if (flags & UPDATEFLAG_HAS_TARGET)
+    /*
+    if (hasAnimKits)
     {
-        ObjectGuid victimGuid = self->GetVictim()->GetGUID();   // checked in BuildCreateUpdateBlockForPlayer
-        data->WriteByteSeq(victimGuid[4]);
-        data->WriteByteSeq(victimGuid[0]);
-        data->WriteByteSeq(victimGuid[3]);
-        data->WriteByteSeq(victimGuid[5]);
-        data->WriteByteSeq(victimGuid[7]);
-        data->WriteByteSeq(victimGuid[6]);
-        data->WriteByteSeq(victimGuid[2]);
-        data->WriteByteSeq(victimGuid[1]);
-    }
+        if (hasAnimKit3)
+            *data << uint16(animKit3);
+        if (hasAnimKit2)
+            *data << uint16(animKit2);
+        if (hasAnimKit1)
+            *data << uint16(animKit1);
+    }*/
 
-    //if (flags & UPDATEFLAG_ANIMKITS)
-    //{
-    //    if (hasAnimKit1)
-    //        *data << uint16(animKit1);
-    //    if (hasAnimKit2)
-    //        *data << uint16(animKit2);
-    //    if (hasAnimKit3)
-    //        *data << uint16(animKit3);
-    //}
-
-    if (flags & UPDATEFLAG_TRANSPORT)
+    if (hasTransport)
     {
         GameObject const* go = ToGameObject();
-        if (go && go->IsTransport())
+
+        if (go && go->ToTransport())
             *data << uint32(go->GetGOValue()->Transport.PathProgress);
         else
             *data << uint32(getMSTime());
     }
-    */
+
+    if (hasGobjectRotation)
+        *data << uint64(ToGameObject()->GetRotation());
+
+     if (hasLiving && hasSpline)
+        Movement::PacketBuilder::WriteFacingTargetPart(*ToUnit()->movespline, *data);
 }
 
 void Object::BuildValuesUpdate(uint8 updateType, ByteBuffer* data, Player* target) const
@@ -857,7 +742,7 @@ void Object::BuildValuesUpdate(uint8 updateType, ByteBuffer* data, Player* targe
     for (uint16 index = 0; index < m_valuesCount; ++index)
     {
         if ((_fieldNotifyFlags & flags[index] ||
-             ((updateType == UPDATETYPE_VALUES ? _changesMask.GetBit(index) : m_uint32Values[index]) && (flags[index] & visibleFlag))) && !(flags[index] & UF_FLAG_TEMP_DISABLED))
+             ((updateType == UPDATETYPE_VALUES ? _changesMask.GetBit(index) : m_uint32Values[index]) && (flags[index] & visibleFlag))))
         {
             updateMask.SetBit(index);
             fieldBuffer << m_uint32Values[index];
@@ -867,7 +752,62 @@ void Object::BuildValuesUpdate(uint8 updateType, ByteBuffer* data, Player* targe
     *data << uint8(updateMask.GetBlockCount());
     updateMask.AppendToPacket(data);
     data->append(fieldBuffer);
-    *data << uint8(0);
+    BuildDynamicValuesUpdate(data);
+
+}
+
+void Object::BuildDynamicValuesUpdate(ByteBuffer *data) const
+{
+    // Only handle Item type
+    // TODO: Implement Player dynamis fields
+    if (m_objectTypeId != TYPEID_ITEM)
+    {
+        *data << uint8(0);
+        return;
+    }
+
+    // Dynamic Fields (5.0.5 MoP new fields)
+    uint32 dynamicTabMask = 0;
+    std::vector<uint32> dynamicFieldsMask;
+    dynamicFieldsMask.resize(m_dynamicTab.size());
+
+    for (size_t i = 0; i < m_dynamicTab.size(); i++)
+        dynamicFieldsMask[i] = 0;
+
+    for (size_t i = 0; i < m_dynamicChange.size(); i++)
+    {
+        for (int index = 0; index < 32; index++)
+        {
+            if (m_dynamicChange[i][index])
+            {
+                dynamicTabMask |= 1 << i;
+                dynamicFieldsMask[i] |= 1 << index;
+            }
+        }
+    }
+
+    *data << uint8(bool(dynamicTabMask));
+    if (dynamicTabMask)
+    {
+        *data << uint32(dynamicTabMask);
+
+        for (size_t i = 0; i < m_dynamicTab.size(); i++)
+        {
+            if (dynamicTabMask & (1 << i))
+            {
+                *data << uint8(1); // Always 1 or (1<<i)?
+                *data << uint32(dynamicFieldsMask[i]);
+
+                for (int index = 0; index < 32; index++)
+                {
+                    if (dynamicFieldsMask[i] & (1 << index))
+                    {
+                        *data << uint32(m_dynamicTab[i][index]);
+                    }
+                }
+            }
+        }
+    }
 }
 
 void Object::ClearUpdateMask(bool remove)
@@ -876,6 +816,9 @@ void Object::ClearUpdateMask(bool remove)
 
     if (m_objectUpdated)
     {
+        for (size_t i = 0; i < m_dynamicTab.size(); i++)
+            memset(m_dynamicChange[i], 0, 32 * sizeof(bool));
+
         if (remove)
             sObjectAccessor->RemoveUpdateObject(this);
         m_objectUpdated = false;
@@ -995,6 +938,22 @@ void Object::SetUInt32Value(uint16 index, uint32 value)
         m_uint32Values[index] = value;
         _changesMask.SetBit(index);
 
+        if (m_inWorld && !m_objectUpdated)
+        {
+            sObjectAccessor->AddUpdateObject(this);
+            m_objectUpdated = true;
+        }
+    }
+}
+
+void Object::SetDynamicUInt32Value(uint32 tab, uint16 index, uint32 value)
+{
+    ASSERT(tab < m_dynamicTab.size() || index < 32);
+
+    if (m_dynamicTab[tab][index] != value)
+    {
+        m_dynamicTab[tab][index] = value;
+        m_dynamicChange[tab][index] = true;
         if (m_inWorld && !m_objectUpdated)
         {
             sObjectAccessor->AddUpdateObject(this);
@@ -2214,9 +2173,26 @@ bool WorldObject::CanDetectStealthOf(WorldObject const* obj) const
 
 void WorldObject::SendPlaySound(uint32 Sound, bool OnlySelf)
 {
-    WorldPacket data(SMSG_PLAY_SOUND, 4);
+    ObjectGuid guid = GetGUID();
+
+    WorldPacket data(SMSG_PLAY_SOUND, 4 + 9);
+    data.WriteBit(guid[2]);
+    data.WriteBit(guid[3]);
+    data.WriteBit(guid[7]);
+    data.WriteBit(guid[6]);
+    data.WriteBit(guid[0]);
+    data.WriteBit(guid[5]);
+    data.WriteBit(guid[4]);
+    data.WriteBit(guid[1]);
     data << uint32(Sound);
-    data << uint64(GetGUID());
+    data.WriteByteSeq(guid[3]);
+    data.WriteByteSeq(guid[2]);
+    data.WriteByteSeq(guid[4]);
+    data.WriteByteSeq(guid[7]);
+    data.WriteByteSeq(guid[5]);
+    data.WriteByteSeq(guid[0]);
+    data.WriteByteSeq(guid[6]);
+    data.WriteByteSeq(guid[1]);
     if (OnlySelf && GetTypeId() == TYPEID_PLAYER)
         this->ToPlayer()->GetSession()->SendPacket(&data);
     else
@@ -2238,185 +2214,146 @@ namespace Trinity
     class MonsterChatBuilder
     {
         public:
-            MonsterChatBuilder(WorldObject const& obj, ChatMsg msgtype, int32 textId, uint32 language, uint64 targetGUID)
-                : i_object(obj), i_msgtype(msgtype), i_textId(textId), i_language(language), i_targetGUID(targetGUID) { }
+            MonsterChatBuilder(WorldObject const* obj, ChatMsg msgtype, int32 textId, uint32 language, WorldObject const* target)
+                : i_object(obj), i_msgtype(msgtype), i_textId(textId), i_language(Language(language)), i_target(target) { }
+
             void operator()(WorldPacket& data, LocaleConstant loc_idx)
             {
                 char const* text = sObjectMgr->GetTrinityString(i_textId, loc_idx);
 
                 /// @todo i_object.GetName() also must be localized?
-                i_object.BuildMonsterChat(&data, i_msgtype, text, i_language, i_object.GetNameForLocaleIdx(loc_idx), i_targetGUID);
+                ChatHandler::BuildChatPacket(data, i_msgtype, i_language, i_object, i_target, text, 0, "", loc_idx);
             }
 
         private:
-            WorldObject const& i_object;
+            WorldObject const* i_object;
             ChatMsg i_msgtype;
             int32 i_textId;
-            uint32 i_language;
-            uint64 i_targetGUID;
+            Language i_language;
+            WorldObject const* i_target;
     };
 
     class MonsterCustomChatBuilder
     {
         public:
-            MonsterCustomChatBuilder(WorldObject const& obj, ChatMsg msgtype, const char* text, uint32 language, uint64 targetGUID)
-                : i_object(obj), i_msgtype(msgtype), i_text(text), i_language(language), i_targetGUID(targetGUID) { }
+            MonsterCustomChatBuilder(WorldObject const* obj, ChatMsg msgtype, const char* text, uint32 language, WorldObject const* target)
+                : i_object(obj), i_msgtype(msgtype), i_text(text), i_language(Language(language)), i_target(target) { }
+
             void operator()(WorldPacket& data, LocaleConstant loc_idx)
             {
                 /// @todo i_object.GetName() also must be localized?
-                i_object.BuildMonsterChat(&data, i_msgtype, i_text, i_language, i_object.GetNameForLocaleIdx(loc_idx), i_targetGUID);
+                ChatHandler::BuildChatPacket(data, i_msgtype, i_language, i_object, i_target, i_text, 0, "", loc_idx);
             }
 
         private:
-            WorldObject const& i_object;
+            WorldObject const* i_object;
             ChatMsg i_msgtype;
             const char* i_text;
-            uint32 i_language;
-            uint64 i_targetGUID;
+            Language i_language;
+            WorldObject const* i_target;
     };
 }                                                           // namespace Trinity
 
-void WorldObject::MonsterSay(const char* text, uint32 language, uint64 TargetGuid)
+void WorldObject::MonsterSay(const char* text, uint32 language, WorldObject const* target)
 {
     CellCoord p = Trinity::ComputeCellCoord(GetPositionX(), GetPositionY());
 
     Cell cell(p);
     cell.SetNoCreate();
 
-    Trinity::MonsterCustomChatBuilder say_build(*this, CHAT_MSG_MONSTER_SAY, text, language, TargetGuid);
+    Trinity::MonsterCustomChatBuilder say_build(this, CHAT_MSG_MONSTER_SAY, text, language, target);
     Trinity::LocalizedPacketDo<Trinity::MonsterCustomChatBuilder> say_do(say_build);
     Trinity::PlayerDistWorker<Trinity::LocalizedPacketDo<Trinity::MonsterCustomChatBuilder> > say_worker(this, sWorld->getFloatConfig(CONFIG_LISTEN_RANGE_SAY), say_do);
     TypeContainerVisitor<Trinity::PlayerDistWorker<Trinity::LocalizedPacketDo<Trinity::MonsterCustomChatBuilder> >, WorldTypeMapContainer > message(say_worker);
     cell.Visit(p, message, *GetMap(), *this, sWorld->getFloatConfig(CONFIG_LISTEN_RANGE_SAY));
 }
 
-void WorldObject::MonsterSay(int32 textId, uint32 language, uint64 TargetGuid)
+void WorldObject::MonsterSay(int32 textId, uint32 language, WorldObject const* target)
 {
     CellCoord p = Trinity::ComputeCellCoord(GetPositionX(), GetPositionY());
 
     Cell cell(p);
     cell.SetNoCreate();
 
-    Trinity::MonsterChatBuilder say_build(*this, CHAT_MSG_MONSTER_SAY, textId, language, TargetGuid);
+    Trinity::MonsterChatBuilder say_build(this, CHAT_MSG_MONSTER_SAY, textId, language, target);
     Trinity::LocalizedPacketDo<Trinity::MonsterChatBuilder> say_do(say_build);
     Trinity::PlayerDistWorker<Trinity::LocalizedPacketDo<Trinity::MonsterChatBuilder> > say_worker(this, sWorld->getFloatConfig(CONFIG_LISTEN_RANGE_SAY), say_do);
     TypeContainerVisitor<Trinity::PlayerDistWorker<Trinity::LocalizedPacketDo<Trinity::MonsterChatBuilder> >, WorldTypeMapContainer > message(say_worker);
     cell.Visit(p, message, *GetMap(), *this, sWorld->getFloatConfig(CONFIG_LISTEN_RANGE_SAY));
 }
 
-void WorldObject::MonsterYell(const char* text, uint32 language, uint64 TargetGuid)
+void WorldObject::MonsterYell(const char* text, uint32 language, WorldObject const* target)
 {
     CellCoord p = Trinity::ComputeCellCoord(GetPositionX(), GetPositionY());
 
     Cell cell(p);
     cell.SetNoCreate();
 
-    Trinity::MonsterCustomChatBuilder say_build(*this, CHAT_MSG_MONSTER_YELL, text, language, TargetGuid);
+    Trinity::MonsterCustomChatBuilder say_build(this, CHAT_MSG_MONSTER_YELL, text, language, target);
     Trinity::LocalizedPacketDo<Trinity::MonsterCustomChatBuilder> say_do(say_build);
     Trinity::PlayerDistWorker<Trinity::LocalizedPacketDo<Trinity::MonsterCustomChatBuilder> > say_worker(this, sWorld->getFloatConfig(CONFIG_LISTEN_RANGE_YELL), say_do);
     TypeContainerVisitor<Trinity::PlayerDistWorker<Trinity::LocalizedPacketDo<Trinity::MonsterCustomChatBuilder> >, WorldTypeMapContainer > message(say_worker);
     cell.Visit(p, message, *GetMap(), *this, sWorld->getFloatConfig(CONFIG_LISTEN_RANGE_YELL));
 }
 
-void WorldObject::MonsterYell(int32 textId, uint32 language, uint64 TargetGuid)
+void WorldObject::MonsterYell(int32 textId, uint32 language, WorldObject const* target)
 {
     CellCoord p = Trinity::ComputeCellCoord(GetPositionX(), GetPositionY());
 
     Cell cell(p);
     cell.SetNoCreate();
 
-    Trinity::MonsterChatBuilder say_build(*this, CHAT_MSG_MONSTER_YELL, textId, language, TargetGuid);
+    Trinity::MonsterChatBuilder say_build(this, CHAT_MSG_MONSTER_YELL, textId, language, target);
     Trinity::LocalizedPacketDo<Trinity::MonsterChatBuilder> say_do(say_build);
     Trinity::PlayerDistWorker<Trinity::LocalizedPacketDo<Trinity::MonsterChatBuilder> > say_worker(this, sWorld->getFloatConfig(CONFIG_LISTEN_RANGE_YELL), say_do);
     TypeContainerVisitor<Trinity::PlayerDistWorker<Trinity::LocalizedPacketDo<Trinity::MonsterChatBuilder> >, WorldTypeMapContainer > message(say_worker);
     cell.Visit(p, message, *GetMap(), *this, sWorld->getFloatConfig(CONFIG_LISTEN_RANGE_YELL));
 }
 
-void WorldObject::MonsterYellToZone(int32 textId, uint32 language, uint64 TargetGuid)
+
+void WorldObject::MonsterTextEmote(const char* text, WorldObject const* target, bool IsBossEmote)
 {
-    Trinity::MonsterChatBuilder say_build(*this, CHAT_MSG_MONSTER_YELL, textId, language, TargetGuid);
-    Trinity::LocalizedPacketDo<Trinity::MonsterChatBuilder> say_do(say_build);
-
-    uint32 zoneid = GetZoneId();
-
-    Map::PlayerList const& pList = GetMap()->GetPlayers();
-    for (Map::PlayerList::const_iterator itr = pList.begin(); itr != pList.end(); ++itr)
-        if (itr->GetSource()->GetZoneId() == zoneid)
-            say_do(itr->GetSource());
-}
-
-void WorldObject::MonsterTextEmote(const char* text, uint64 TargetGuid, bool IsBossEmote)
-{
-    WorldPacket data(SMSG_MESSAGECHAT, 200);
-    BuildMonsterChat(&data, IsBossEmote ? CHAT_MSG_RAID_BOSS_EMOTE : CHAT_MSG_MONSTER_EMOTE, text, LANG_UNIVERSAL, GetName(), TargetGuid);
+    WorldPacket data;
+    ChatHandler::BuildChatPacket(data, IsBossEmote ? CHAT_MSG_RAID_BOSS_EMOTE : CHAT_MSG_MONSTER_EMOTE, LANG_UNIVERSAL, this, target, text);
     SendMessageToSetInRange(&data, sWorld->getFloatConfig(CONFIG_LISTEN_RANGE_TEXTEMOTE), true);
 }
 
-void WorldObject::MonsterTextEmote(int32 textId, uint64 TargetGuid, bool IsBossEmote)
+void WorldObject::MonsterTextEmote(int32 textId, WorldObject const* target, bool IsBossEmote)
 {
     CellCoord p = Trinity::ComputeCellCoord(GetPositionX(), GetPositionY());
 
     Cell cell(p);
     cell.SetNoCreate();
 
-    Trinity::MonsterChatBuilder say_build(*this, IsBossEmote ? CHAT_MSG_RAID_BOSS_EMOTE : CHAT_MSG_MONSTER_EMOTE, textId, LANG_UNIVERSAL, TargetGuid);
+    Trinity::MonsterChatBuilder say_build(this, IsBossEmote ? CHAT_MSG_RAID_BOSS_EMOTE : CHAT_MSG_MONSTER_EMOTE, textId, LANG_UNIVERSAL, target);
     Trinity::LocalizedPacketDo<Trinity::MonsterChatBuilder> say_do(say_build);
     Trinity::PlayerDistWorker<Trinity::LocalizedPacketDo<Trinity::MonsterChatBuilder> > say_worker(this, sWorld->getFloatConfig(CONFIG_LISTEN_RANGE_TEXTEMOTE), say_do);
     TypeContainerVisitor<Trinity::PlayerDistWorker<Trinity::LocalizedPacketDo<Trinity::MonsterChatBuilder> >, WorldTypeMapContainer > message(say_worker);
     cell.Visit(p, message, *GetMap(), *this, sWorld->getFloatConfig(CONFIG_LISTEN_RANGE_TEXTEMOTE));
 }
 
-void WorldObject::MonsterWhisper(const char* text, uint64 receiver, bool IsBossWhisper)
+void WorldObject::MonsterWhisper(const char* text, Player const* target, bool IsBossWhisper)
 {
-    Player* player = ObjectAccessor::FindPlayer(receiver);
-    if (!player || !player->GetSession())
+    if (!target)
         return;
 
-    LocaleConstant loc_idx = player->GetSession()->GetSessionDbLocaleIndex();
-
-    WorldPacket data(SMSG_MESSAGECHAT, 200);
-    BuildMonsterChat(&data, IsBossWhisper ? CHAT_MSG_RAID_BOSS_WHISPER : CHAT_MSG_MONSTER_WHISPER, text, LANG_UNIVERSAL, GetNameForLocaleIdx(loc_idx), receiver);
-
-    player->GetSession()->SendPacket(&data);
+    LocaleConstant loc_idx = target->GetSession()->GetSessionDbLocaleIndex();
+    WorldPacket data;
+    ChatHandler::BuildChatPacket(data, IsBossWhisper ? CHAT_MSG_RAID_BOSS_WHISPER : CHAT_MSG_MONSTER_WHISPER, LANG_UNIVERSAL, this, target, text, 0, "", loc_idx);
+    target->GetSession()->SendPacket(&data);
 }
 
-void WorldObject::MonsterWhisper(int32 textId, uint64 receiver, bool IsBossWhisper)
+void WorldObject::MonsterWhisper(int32 textId, Player const* target, bool IsBossWhisper)
 {
-    Player* player = ObjectAccessor::FindPlayer(receiver);
-    if (!player || !player->GetSession())
+    if (!target)
         return;
 
-    LocaleConstant loc_idx = player->GetSession()->GetSessionDbLocaleIndex();
+    LocaleConstant loc_idx = target->GetSession()->GetSessionDbLocaleIndex();
     char const* text = sObjectMgr->GetTrinityString(textId, loc_idx);
 
-    WorldPacket data(SMSG_MESSAGECHAT, 200);
-    BuildMonsterChat(&data, IsBossWhisper ? CHAT_MSG_RAID_BOSS_WHISPER : CHAT_MSG_MONSTER_WHISPER, text, LANG_UNIVERSAL, GetNameForLocaleIdx(loc_idx), receiver);
-
-    player->GetSession()->SendPacket(&data);
-}
-
-void WorldObject::BuildMonsterChat(WorldPacket* data, uint8 msgtype, char const* text, uint32 language, std::string const &name, uint64 targetGuid) const
-{
-    *data << (uint8)msgtype;
-    *data << (uint32)language;
-    *data << (uint64)GetGUID();
-    *data << (uint32)0;                                     // 2.1.0
-    *data << (uint32)(name.size()+1);
-    *data << name;
-    *data << (uint64)targetGuid;                            // Unit Target
-    if (targetGuid && !IS_PLAYER_GUID(targetGuid))
-    {
-        *data << (uint32)1;                                 // target name length
-        *data << (uint8)0;                                  // target name
-    }
-    *data << (uint32)(strlen(text)+1);
-    *data << text;
-    *data << (uint8)0;                                      // ChatTag
-    if (msgtype == CHAT_MSG_RAID_BOSS_EMOTE || msgtype == CHAT_MSG_RAID_BOSS_WHISPER)
-    {
-        *data << float(0);
-        *data << uint8(0);
-    }
+    WorldPacket data;
+    ChatHandler::BuildChatPacket(data, IsBossWhisper ? CHAT_MSG_RAID_BOSS_WHISPER : CHAT_MSG_MONSTER_WHISPER, LANG_UNIVERSAL, this, target, text, 0, "", loc_idx);
+    target->GetSession()->SendPacket(&data);
 }
 
 void WorldObject::SendMessageToSet(WorldPacket* data, bool self)
@@ -2773,6 +2710,13 @@ void WorldObject::GetCreatureListWithEntryInGrid(std::list<Creature*>& creatureL
     TypeContainerVisitor<Trinity::CreatureListSearcher<Trinity::AllCreaturesOfEntryInRange>, GridTypeMapContainer> visitor(searcher);
 
     cell.Visit(pair, visitor, *(this->GetMap()), *this, maxSearchRange);
+}
+
+void WorldObject::GetPlayerListInGrid(std::list<Player*>& playerList, float maxSearchRange) const
+{    
+    Trinity::AnyPlayerInObjectRangeCheck checker(this, maxSearchRange);
+    Trinity::PlayerListSearcher<Trinity::AnyPlayerInObjectRangeCheck> searcher(this, playerList, checker);
+    this->VisitNearbyWorldObject(maxSearchRange, searcher);
 }
 
 /*
@@ -3148,9 +3092,27 @@ bool WorldObject::InSamePhase(WorldObject const* obj) const
 
 void WorldObject::PlayDistanceSound(uint32 sound_id, Player* target /*= NULL*/)
 {
-    WorldPacket data(SMSG_PLAY_OBJECT_SOUND, 4+8);
+    ObjectGuid guid = GetGUID();
+
+    WorldPacket data(SMSG_PLAY_OBJECT_SOUND, 4 + 9);
+    data.WriteBit(guid[2]);
+    data.WriteBit(guid[3]);
+    data.WriteBit(guid[7]);
+    data.WriteBit(guid[6]);
+    data.WriteBit(guid[0]);
+    data.WriteBit(guid[5]);
+    data.WriteBit(guid[4]);
+    data.WriteBit(guid[1]);
     data << uint32(sound_id);
-    data << uint64(GetGUID());
+    data.WriteByteSeq(guid[3]);
+    data.WriteByteSeq(guid[2]);
+    data.WriteByteSeq(guid[4]);
+    data.WriteByteSeq(guid[7]);
+    data.WriteByteSeq(guid[5]);
+    data.WriteByteSeq(guid[0]);
+    data.WriteByteSeq(guid[6]);
+    data.WriteByteSeq(guid[1]);
+
     if (target)
         target->SendDirectMessage(&data);
     else

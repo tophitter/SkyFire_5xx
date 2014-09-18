@@ -31,6 +31,7 @@
 
 #include "Log.h"
 #include "Master.h"
+#include "World.h"
 
 #ifndef _TRINITY_CORE_CONFIG
 # define _TRINITY_CORE_CONFIG  "worldserver.conf"
@@ -39,8 +40,8 @@
 #ifdef _WIN32
 #include "ServiceWin32.h"
 char serviceName[] = "worldserver";
-char serviceLongName[] = "TrinityCore world service";
-char serviceDescription[] = "TrinityCore World of Warcraft emulator world service";
+char serviceLongName[] = "SkyFire world service";
+char serviceDescription[] = "SkyFire World of Warcraft emulator world service";
 /*
  * -1 - not in service mode
  *  0 - stopped
@@ -54,6 +55,7 @@ WorldDatabaseWorkerPool WorldDatabase;                      ///< Accessor to the
 CharacterDatabaseWorkerPool CharacterDatabase;              ///< Accessor to the character database
 LoginDatabaseWorkerPool LoginDatabase;                      ///< Accessor to the realm/login database
 
+RealmNameMap realmNameStore;
 uint32 realmID;                                             ///< Id of the realm
 
 /// Print out the usage string for this program on the console.

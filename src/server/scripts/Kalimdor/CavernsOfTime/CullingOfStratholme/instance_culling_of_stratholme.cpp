@@ -82,13 +82,13 @@ class instance_culling_of_stratholme : public InstanceMapScript
                 return false;
             }
 
-            void FillInitialWorldStates(WorldPacket& data) OVERRIDE
+            void FillInitialWorldStates(WorldStateBuilder& builder) OVERRIDE
             {
-                data << uint32(WORLDSTATE_SHOW_CRATES) << uint32(1);
-                data << uint32(WORLDSTATE_CRATES_REVEALED) << uint32(_crateCount);
-                data << uint32(WORLDSTATE_WAVE_COUNT) << uint32(0);
-                data << uint32(WORLDSTATE_TIME_GUARDIAN) << uint32(25);
-                data << uint32(WORLDSTATE_TIME_GUARDIAN_SHOW) << uint32(0);
+                builder.AppendState(WORLDSTATE_SHOW_CRATES, 1);
+                builder.AppendState(WORLDSTATE_CRATES_REVEALED, _crateCount);
+                builder.AppendState(WORLDSTATE_WAVE_COUNT, 0);
+                builder.AppendState(WORLDSTATE_TIME_GUARDIAN, 25);
+                builder.AppendState(WORLDSTATE_TIME_GUARDIAN_SHOW, 0);
             }
 
             void OnCreatureCreate(Creature* creature) OVERRIDE
@@ -191,7 +191,7 @@ class instance_culling_of_stratholme : public InstanceMapScript
                             if (Creature* chromie = instance->SummonCreature(NPC_CHROMIE_2, ChromieSummonPos))
                                 if (!instance->GetPlayers().isEmpty())
                                     if (Player* player = instance->GetPlayers().getFirst()->GetSource())
-                                        sCreatureTextMgr->SendChat(chromie, SAY_CRATES_COMPLETED, player->GetGUID(), CHAT_MSG_ADDON, LANG_ADDON, TEXT_RANGE_MAP);
+                                        sCreatureTextMgr->SendChat(chromie, SAY_CRATES_COMPLETED, player, CHAT_MSG_ADDON, LANG_ADDON, TEXT_RANGE_MAP);
                         }
                         DoUpdateWorldState(WORLDSTATE_CRATES_REVEALED, _crateCount);
                         break;

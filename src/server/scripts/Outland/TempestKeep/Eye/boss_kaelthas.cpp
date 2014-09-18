@@ -145,7 +145,7 @@ uint32 m_auiSpellSummonWeapon[]=
 };
 
 const float CAPERNIAN_DISTANCE          = 20.0f;            //she casts away from the target
-const float KAEL_VISIBLE_RANGE          = 50.0f;
+//const float KAEL_VISIBLE_RANGE          = 50.0f;
 
 const float afGravityPos[3]             = {795.0f, 0.0f, 70.0f};
 
@@ -1080,7 +1080,7 @@ class boss_thaladred_the_darkener : public CreatureScript
                     {
                         DoResetThreat();
                         me->AddThreat(target, 5000000.0f);
-                        Talk(EMOTE_THALADRED_GAZE, target->GetGUID());
+                        Talk(EMOTE_THALADRED_GAZE, target);
                         Gaze_Timer = 8500;
                     }
                 }

@@ -29,6 +29,7 @@
 #    CUSTOM SERVER OPTIONS
 #    LOGGING SYSTEM SETTINGS
 #    CURRENCIES SETTINGS
+#    BATTLE PET SETTINGS
 #    PACKET SPOOF PROTECTION SETTINGS
 #
 ###################################################################################################
@@ -697,9 +698,9 @@ CharacterCreating.Disabled.ClassMask = 0
 #    CharactersPerAccount
 #        Description: Limit number of characters per account on all realms on this realmlist.
 #        Important:   Number must be >= CharactersPerRealm
-#        Default:     50
+#        Default:     55
 
-CharactersPerAccount = 50
+CharactersPerAccount = 55
 #
 #    CharactersPerRealm
 #        Description: Limit number of characters per account on this realm.
@@ -780,9 +781,9 @@ StartPlayerMoney = 0
 #    RecruitAFriend.MaxLevel
 #        Description: Highest level up to which a character can benefit from the Recruit-A-Friend
 #                     experience multiplier.
-#        Default:     80
+#        Default:     85
 
-RecruitAFriend.MaxLevel = 80
+RecruitAFriend.MaxLevel = 85
 
 #
 #    RecruitAFriend.MaxDifference
@@ -818,7 +819,7 @@ AllFlightPaths = 0
 #        Default:     0 - (Disabled)
 #                     1 - (Enabled)
 
-InstantFlightPaths = 0
+InstantFlightPaths = 1
 
 #
 #    ActivateWeather
@@ -1114,7 +1115,14 @@ AccountInstancesPerHour = 5
 
 Account.PasswordChangeSecurity = 0
 
+#   RBAC.FreePermissionMode
+#        Description: Enables Free permission mode. Gives all RBAC permissions to everyone.
+#        Default:     0 - Disabled
+#                     1 - Enabled (Everyone has all of the RBAC permissions)
 #
+
+RBAC.FreePermissionMode = 0
+
 ###################################################################################################
 
 ###################################################################################################
@@ -2898,6 +2906,29 @@ Currency.ConquestPointsDefaultWeekCap = 1350
 Currency.ConquestPointsArenaReward = 180
 
 #
+###################################################################################################
+
+###################################################################################################
+# BATTLE PET SETTINGS
+#
+#    BattlePet.LoadoutUnlockCount
+#        Description: Amount of loadout slots that are unlocked on learning Battle Pet Training (1-3)
+#        Default:     1
+#
+
+BattlePet.LoadoutUnlockCount = 1
+
+#
+#    BattlePet.InitialLevel
+#        Description: Initial level of Battle Pets learnt by item
+#        Default:     1
+#
+
+BattlePet.InitialLevel = 1
+
+#
+###################################################################################################
+
 ###################################################################################################
 # PACKET SPOOF PROTECTION SETTINGS
 #

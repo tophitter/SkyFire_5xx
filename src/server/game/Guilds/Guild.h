@@ -84,7 +84,9 @@ enum GuildRankRights
     GR_RIGHT_WITHDRAW_REPAIR            = 0x00040000,                   // withdraw for repair
     GR_RIGHT_WITHDRAW_GOLD              = 0x00080000,                   // withdraw gold
     GR_RIGHT_CREATE_GUILD_EVENT         = 0x00100000,                   // wotlk
-    GR_RIGHT_ALL                        = 0x00DDFFBF
+    GR_RIGHT_REQUIRES_AUTHENTICATOR     = 0x00200000,
+    GR_RIGHT_MODIFY_BANK_TAB            = 0x00400000,
+    GR_RIGHT_ALL                        = 0x00DDFFBF                    // FDFFBF with GR_RIGHT_REQUIRES_AUTHENTICATOR
 };
 
 enum GuildCommandType
@@ -263,11 +265,17 @@ struct GuildReward
     uint32 Entry;
     int32 Racemask;
     uint64 Price;
-    uint32 AchievementId;
+    std::vector<uint32> Achievements;
     uint8 Standing;
 };
 
 uint32 const MinNewsItemLevel[MAX_CONTENT] = { 61, 90, 200, 353 };
+
+// GuildChallengeInfo
+const uint32 GuildChallengeWeeklyMaximum[] = { 0, 7, 1, 3, 15, 3 };
+const uint32 GuildChallengeGoldReward[] = { 0, 125, 500, 250, 125, 250 };
+const uint32 GuildChallengeMaxLevelGoldReward[] = { 0, 250, 1000, 500, 250, 500 };
+const uint32 GuildChallengeXPReward[] = { 0, 300000, 3000000, 1500000, 50000, 1000000 };
 
 // Emblem info
 class EmblemInfo
@@ -795,6 +803,7 @@ public:
     void HandleDisband(WorldSession* session);
     void HandleGuildPartyRequest(WorldSession* session);
     void HandleNewsSetSticky(WorldSession* session, uint32 newsId, bool sticky);
+    void HandleSetBankTabNote(WorldSession* session, uint32 tabId, std::string note);
 
     void UpdateMemberData(Player* player, uint8 dataid, uint32 value);
     void OnPlayerStatusChange(Player* player, uint32 flag, bool state);

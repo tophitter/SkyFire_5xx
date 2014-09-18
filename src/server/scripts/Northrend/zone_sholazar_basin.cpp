@@ -228,7 +228,7 @@ public:
                 break;
             case GOSSIP_ACTION_INFO_DEF+2:
                 player->CLOSE_GOSSIP_MENU();
-                creature->AI()->Talk(SAY_TEXTID_VEKJIK1, player->GetGUID());
+                creature->AI()->Talk(SAY_TEXTID_VEKJIK1, player);
                 player->AreaExploredOrEventHappens(QUEST_MAKING_PEACE);
                 creature->CastSpell(player, SPELL_FREANZYHEARTS_FURY, false);
                 break;
@@ -620,19 +620,12 @@ public:
             if (itr->second.Status != QUEST_STATUS_INCOMPLETE)
                 return;
 
-            for (uint8 i = 0; i < 3; ++i)
-            {
-                if (uint32(quest->RequiredNpcOrGo[i]) != me->GetEntry())
-                    continue;
+            if (!quest->GetQuestObjectiveXObjectId(me->GetEntry()))
+                return;
 
-                if (itr->second.CreatureOrGOCount[i] != 0)
-                    continue;
-
-                player->KilledMonsterCredit(me->GetEntry(), 0);
-                player->Say(SAY_OFFER, LANG_UNIVERSAL);
-                sayStep = 1;
-                break;
-            }
+            player->KilledMonsterCredit(me->GetEntry(), 0);
+            player->Say(SAY_OFFER, LANG_UNIVERSAL);
+            sayStep = 1;
         }
 
         private:
@@ -775,7 +768,7 @@ public:
             {
                 if (Creature* presence = caster->FindNearestCreature(NPC_PRESENCE, 50.0f))
                 {
-                    presence->AI()->Talk(WHISPER_ACTIVATE, caster->GetGUID());
+                    presence->AI()->Talk(WHISPER_ACTIVATE, caster);
                     presence->CastSpell(presence, SPELL_FREYA_DUMMY, true); // will target plants
                     // Freya Dummy could be scripted with the following code
 

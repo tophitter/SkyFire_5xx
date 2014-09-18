@@ -39,11 +39,11 @@ enum LevelLimit
 enum BattlegroundBracketId                                  // bracketId for level ranges
 {
     BG_BRACKET_ID_FIRST          = 0,
-    BG_BRACKET_ID_LAST           = 15
+    BG_BRACKET_ID_LAST           = 16
 };
 
 // must be max value in PvPDificulty slot+1
-#define MAX_BATTLEGROUND_BRACKETS  16
+#define MAX_BATTLEGROUND_BRACKETS  17
 
 enum AreaTeams
 {
@@ -166,7 +166,7 @@ enum AchievementCriteriaTimedTypes
     ACHIEVEMENT_TIMED_TYPE_SPELL_TARGET     = 6,    // Timer is started by being target of spell with entry in timerStartEvent
     ACHIEVEMENT_TIMED_TYPE_CREATURE         = 7,    // Timer is started by killing creature with entry in timerStartEvent
     ACHIEVEMENT_TIMED_TYPE_ITEM             = 9,    // Timer is started by using item with entry in timerStartEvent
-    ACHIEVEMENT_TIMED_TYPE_UNK              = 10,   // Unknown
+    ACHIEVEMENT_TIMED_TYPE_UNK              = 14,   // Unknown
 
     ACHIEVEMENT_TIMED_TYPE_MAX
 };
@@ -287,7 +287,7 @@ enum AchievementCriteriaTypes
     ACHIEVEMENT_CRITERIA_TYPE_COMPLETE_GUILD_CHALLENGE      = 139  //struct { uint32 count; } Guild Challenge
 };
 
-#define ACHIEVEMENT_CRITERIA_TYPE_TOTAL 140
+#define ACHIEVEMENT_CRITERIA_TYPE_TOTAL 163
 
 enum AreaFlags
 {
@@ -337,7 +337,7 @@ enum Difficulty
     RAID_DIFFICULTY_25MAN_HEROIC = 3,
     RAID_DIFFICULTY_10MAN_FLEX   = 4,
     RAID_DIFFICULTY_25MAN_LFR    = 5,
-    
+
     SCENARIO_DIFFICULTY_NORMAL   = 0,
     SCENARIO_DIFFICULTY_HEROIC   = 1
 };
@@ -369,7 +369,7 @@ enum SpawnMask
     SPAWNMASK_RAID_HEROIC_ALL       = (SPAWNMASK_RAID_10MAN_HEROIC | SPAWNMASK_RAID_25MAN_HEROIC),
 
     SPAWNMASK_RAID_ALL              = (SPAWNMASK_RAID_NORMAL_ALL | SPAWNMASK_RAID_HEROIC_ALL),
-    
+
     SPAWNMASK_SCENARIO_NORMAL       = (1 << SCENARIO_DIFFICULTY_NORMAL),
     SPAWNMASK_SCENARIO_HEROIC       = (1 << SCENARIO_DIFFICULTY_HEROIC),
     SPAWNMASK_SCENARIO_ALL          = (SCENARIO_DIFFICULTY_NORMAL | SCENARIO_DIFFICULTY_HEROIC)

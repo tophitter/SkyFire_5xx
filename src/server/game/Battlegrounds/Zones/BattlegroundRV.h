@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License along
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
 #ifndef __BATTLEGROUNDRV_H
 #define __BATTLEGROUNDRV_H
 
@@ -104,7 +104,7 @@ class BattlegroundRV : public Battleground
         void StartingEventCloseDoors();
         void StartingEventOpenDoors();
         void Reset();
-        void FillInitialWorldStates(WorldPacket &d);
+        void FillInitialWorldStates(WorldStateBuilder& builder);
 
         void RemovePlayer(Player* player, uint64 guid, uint32 team);
         void HandleAreaTrigger(Player* Source, uint32 Trigger);
